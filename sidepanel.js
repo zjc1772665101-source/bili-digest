@@ -14,13 +14,17 @@ import {
   buildNotesMarkdown,
 } from "./lib/export.js";
 import { normalizeProviderConfig, requestAiCompletionStream } from "./lib/ai.js";
-import { ensureHostPermission } from "./lib/host-permissions.js";
 import { renderMarkdown } from "./lib/markdown.js";
 import {
   TYPOGRAPHY_DEFAULTS,
   applyTypographySettings,
+  filterFontOptions,
+  getFontOptions,
+  normalizeShowBrandText,
   normalizeTypographySettings,
+  requestLocalFontList,
 } from "./lib/typography.js";
+import { createSettingsBackup, parseSettingsBackup } from "./lib/settings-transfer.js";
 
 const EMPTY_GLYPHS = {
   video: '<svg class="empty-glyph" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 3.5l4 3 4-3"/></svg>',
@@ -40,14 +44,20 @@ const state = {
   hideOriginal: false,
   translations: [],
   translating: false,
+  asrGenerating: false,
   overview: null,
   settings: {
     aiApiKey: "",
     aiBaseUrl: "",
     aiModel: "",
+    asrGroqApiKey: "",
+    asrModel: "whisper-large-v3",
+    asrLanguage: "auto",
     targetLanguage: "English",
     customLanguage: "",
     thinkingLevel: "off",
+    showMarkButton: true,
+    showBrandText: true,
     ...TYPOGRAPHY_DEFAULTS,
   },
   settingsLoaded: false,
@@ -97,6 +107,12 @@ const apiKeyInput = $("apiKeyInput");
 const toggleKeyBtn = $("toggleKeyBtn");
 const testKeyBtn = $("testKeyBtn");
 const keyTestResultEl = $("keyTestResult");
+const asrGroqApiKeyInput = $("asrGroqApiKeyInput");
+const toggleAsrKeyBtn = $("toggleAsrKeyBtn");
+const asrModelSelect = $("asrModelSelect");
+const asrLanguageSelect = $("asrLanguageSelect");
+const testAsrBtn = $("testAsrBtn");
+const asrTestResultEl = $("asrTestResult");
 const baseUrlInput = $("baseUrlInput");
 const modelSelect = $("modelSelect");
 const modelInput = $("modelInput");
@@ -121,6 +137,49 @@ const readingLetterSpacingRange = $("readingLetterSpacingRange");
 const readingLetterSpacingOutput = $("readingLetterSpacingOutput");
 const resetTypographyBtn = $("resetTypographyBtn");
 const typographyStatus = $("typographyStatus");
+const interfaceFontPresetSelect = $("interfaceFontPresetSelect");
+const codeFontPresetSelect = $("codeFontPresetSelect");
+const readLocalFontsBtn = $("readLocalFontsBtn");
+const localFontsStatus = $("localFontsStatus");
+const brandFontSizeRange = $("brandFontSizeRange");
+const brandFontSizeOutput = $("brandFontSizeOutput");
+const titleFontSizeRange = $("titleFontSizeRange");
+const titleFontSizeOutput = $("titleFontSizeOutput");
+const navigationFontSizeRange = $("navigationFontSizeRange");
+const navigationFontSizeOutput = $("navigationFontSizeOutput");
+const controlFontSizeRange = $("controlFontSizeRange");
+const controlFontSizeOutput = $("controlFontSizeOutput");
+const overviewButtonFontSizeRange = $("overviewButtonFontSizeRange");
+const overviewButtonFontSizeOutput = $("overviewButtonFontSizeOutput");
+const videoActionButtonSizeRange = $("videoActionButtonSizeRange");
+const videoActionButtonSizeOutput = $("videoActionButtonSizeOutput");
+const metaFontSizeRange = $("metaFontSizeRange");
+const metaFontSizeOutput = $("metaFontSizeOutput");
+const codeFontSizeRange = $("codeFontSizeRange");
+const codeFontSizeOutput = $("codeFontSizeOutput");
+const fontSearchInput = $("fontSearchInput");
+const fontSearchStatus = $("fontSearchStatus");
+const showMarkButtonCheckbox = $("showMarkButtonCheckbox");
+const showBrandTextCheckbox = $("showBrandTextCheckbox");
+const includeApiKeyExportCheckbox = $("includeApiKeyExportCheckbox");
+const exportSettingsBtn = $("exportSettingsBtn");
+const importSettingsBtn = $("importSettingsBtn");
+const settingsImportFile = $("settingsImportFile");
+const settingsTransferStatus = $("settingsTransferStatus");
+const regionTypographyControls = [
+  ["transcript", $("transcriptFontPresetSelect"), $("transcriptFontSizeRange"), $("transcriptFontSizeOutput")],
+  ["overview", $("overviewFontPresetSelect"), $("overviewFontSizeRange"), $("overviewFontSizeOutput")],
+  ["notes", $("notesFontPresetSelect"), $("notesFontSizeRange"), $("notesFontSizeOutput")],
+  ["chat", $("chatFontPresetSelect"), $("chatFontSizeRange"), $("chatFontSizeOutput")],
+  ["settings", $("settingsFontPresetSelect"), $("settingsFontSizeRange"), $("settingsFontSizeOutput")],
+];
+const fontSelects = [
+  readingFontPresetSelect,
+  interfaceFontPresetSelect,
+  codeFontPresetSelect,
+  ...regionTypographyControls.map(([, select]) => select),
+];
+const localFontEntries = [];
 const regenerateChatBtn = $("regenerateChatBtn");
 const exportChatBtn = $("exportChatBtn");
 const exportNotesBtn = $("exportNotesBtn");
@@ -234,6 +293,31 @@ function renderEmpty(targetEl, glyph, lines, { glyphHtml = false } = {}) {
   targetEl.appendChild(box);
 }
 
+function renderAsrEmpty(detail = "") {
+  renderEmpty(
+    segmentsEl,
+    EMPTY_GLYPHS.mute,
+    [
+      "没有找到 B站字幕轨道",
+      detail || "可以从视频音轨生成带时间轴的 AI 字幕",
+    ],
+    { glyphHtml: true },
+  );
+  const box = segmentsEl.querySelector(".empty-state");
+  if (!box) return;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "primary-btn asr-generate-btn";
+  button.textContent = state.asrGenerating ? "正在生成 AI 字幕…" : "AI 生成字幕";
+  button.disabled = state.asrGenerating;
+  button.addEventListener("click", () => generateAsrTranscript());
+  box.appendChild(button);
+  const hint = document.createElement("p");
+  hint.className = "asr-empty-hint";
+  hint.textContent = "浏览器会先下载 B站最低码率音轨，再上传 Groq；不会再让 Groq 直接访问 B站 CDN。";
+  box.appendChild(hint);
+}
+
 // ============================================================
 // 视频检测
 // ============================================================
@@ -307,10 +391,11 @@ async function detectVideo() {
       return;
     }
 
+    const previousCid = Number(state.video?.cid) || 0;
+    const incomingCid = Number(context.cid) || 0;
     const changed =
       !state.video ||
       state.video.bvid !== context.bvid ||
-      state.video.cid !== context.cid ||
       Number(state.video.page || 1) !== Number(context.page || 1);
 
     if (changed) {
@@ -329,7 +414,14 @@ async function detectVideo() {
       loadParts();
       await loadTranscript();
     } else {
-      state.video = context;
+      state.video = {
+        ...state.video,
+        ...context,
+        // 视频身份由 BV + 分 P 决定。B站 SPA 的 cid 在初始化过程中可能
+        // 从 0、旧值、真实值之间短暂跳动，不能拿它作为“换视频”的判据。
+        // 一旦后台解析出稳定 cid，就优先保留，避免轮询清空 AI 字幕。
+        cid: previousCid || incomingCid,
+      };
       updateHeader();
       ensureAuthorMid();
     }
@@ -385,6 +477,7 @@ async function loadTranscript({ lan } = {}) {
       page: state.video.page || 1,
       lan,
     });
+    state.video.cid = Number(result.cid) || state.video.cid;
     const trackChanged = state.track?.lan !== result.track?.lan;
     state.segments = result.segments || [];
     state.tracks = result.tracks || [];
@@ -398,17 +491,16 @@ async function loadTranscript({ lan } = {}) {
     }
 
     if (state.segments.length === 0) {
-      renderEmpty(
-        segmentsEl,
-        EMPTY_GLYPHS.mute,
-        [
-          result.tracks?.length
-            ? "字幕文件为空"
-            : "没有找到字幕轨道",
-          "请确认：已在 bilibili.com 登录，且这个视频本身有字幕",
-        ],
-        { glyphHtml: true },
-      );
+      if (!result.tracks?.length) {
+        renderAsrEmpty();
+      } else {
+        renderEmpty(
+          segmentsEl,
+          EMPTY_GLYPHS.mute,
+          ["字幕文件为空", "可以刷新字幕，或检查视频本身的字幕轨道"],
+          { glyphHtml: true },
+        );
+      }
       transcriptStatusEl.textContent = "";
       return;
     }
@@ -439,6 +531,56 @@ async function loadTranscript({ lan } = {}) {
       ],
       { glyphHtml: true },
     );
+  }
+}
+
+async function generateAsrTranscript({ force = false } = {}) {
+  if (state.asrGenerating || !state.video?.bvid) return false;
+  if (!state.settingsLoaded) await loadSettings();
+  if (!state.settings.asrGroqApiKey) {
+    showToast("请先在设置中填写 Groq API Key", "error");
+    switchTab("settings");
+    return false;
+  }
+
+  state.asrGenerating = true;
+  transcriptStatusEl.textContent = "正在获取 B站最低码率音轨并上传 Groq…";
+  transcriptStatusEl.className = "status-line";
+  renderAsrEmpty("正在处理音频，请不要关闭当前视频页");
+  try {
+    const result = await send("generateAsrTranscript", {
+      bvid: state.video.bvid,
+      cid: state.video.cid || 0,
+      aid: state.video.aid,
+      page: state.video.page || 1,
+      title: state.video.title || "",
+      force,
+    });
+    state.video.cid = Number(result.cid) || state.video.cid;
+    state.segments = result.segments || [];
+    state.tracks = result.tracks || [];
+    state.track = result.track || null;
+    state.translations = [];
+    state.overview = null;
+    renderTrackSelect();
+    renderSegments();
+    updateTranslateButton();
+    const cacheText = result.cached ? "（本机缓存）" : "";
+    transcriptStatusEl.textContent = `已生成 ${state.segments.length} 条 AI 字幕 ${cacheText}`.trim();
+    showToast(result.cached ? "已读取本机 AI 字幕缓存" : "AI 字幕生成完成");
+    return state.segments.length > 0;
+  } catch (error) {
+    transcriptStatusEl.textContent = "";
+    renderAsrEmpty(`生成失败：${error.message || "未知错误"}`);
+    showToast(error.message || "AI 字幕生成失败", "error");
+    return false;
+  } finally {
+    state.asrGenerating = false;
+    const button = segmentsEl.querySelector(".asr-generate-btn");
+    if (button) {
+      button.disabled = false;
+      button.textContent = "AI 生成字幕";
+    }
   }
 }
 
@@ -736,11 +878,11 @@ async function copyTranscript() {
 // ============================================================
 
 async function loadOverview({ force = false } = {}) {
-  if (!state.video?.bvid || !state.segments.length) {
+  if (!state.video?.bvid) {
     renderEmpty(
       overviewContentEl,
       EMPTY_GLYPHS.overview,
-      ["该视频没有字幕，无法生成概览"],
+      ["先打开一个 B站视频"],
       { glyphHtml: true },
     );
     return;
@@ -754,6 +896,17 @@ async function loadOverview({ force = false } = {}) {
     : "正在生成 AI 概览…";
 
   try {
+    if (!state.segments.length) {
+      overviewStatusEl.textContent = "没有可用字幕，正在先生成 AI 字幕…";
+      const ready = await generateAsrTranscript({ force: false });
+      if (!ready || !state.segments.length) {
+        throw new Error("没有可用字幕，AI 字幕也未能生成");
+      }
+      overviewStatusEl.textContent = force
+        ? "AI 字幕已就绪，正在重新生成概览…"
+        : "AI 字幕已就绪，正在生成 AI 概览…";
+    }
+
     const result = await send("generateOverview", {
       bvid: state.video.bvid,
       cid: state.video.cid,
@@ -1577,6 +1730,9 @@ async function loadSettings() {
     const result = await send("getSettings");
     state.settings = result.settings;
     apiKeyInput.value = state.settings.aiApiKey || "";
+    asrGroqApiKeyInput.value = state.settings.asrGroqApiKey || "";
+    asrModelSelect.value = state.settings.asrModel || "whisper-large-v3";
+    asrLanguageSelect.value = state.settings.asrLanguage || "auto";
     baseUrlInput.value = state.settings.aiBaseUrl || "";
     const savedModel = String(state.settings.aiModel || "").trim();
     if (savedModel) {
@@ -1588,6 +1744,8 @@ async function loadSettings() {
     thinkingLevelSelect.value = state.settings.thinkingLevel || "off";
     targetLanguageSelect.value = state.settings.targetLanguage || "English";
     customLanguageInput.value = state.settings.customLanguage || "";
+    showMarkButtonCheckbox.checked = state.settings.showMarkButton !== false;
+    showBrandTextCheckbox.checked = normalizeShowBrandText(state.settings.showBrandText, true);
     updateCustomVisibility();
     setTypographyControls(state.settings);
     state.settingsLoaded = true;
@@ -1607,22 +1765,115 @@ function updateModelCustomVisibility() {
   modelInput.classList.toggle("hidden", modelSelect.value !== "__custom__");
 }
 
+function populateFontOptions() {
+  const allOptions = getFontOptions(localFontEntries);
+  const filteredOptions = filterFontOptions(allOptions, fontSearchInput?.value || "");
+  if (fontSearchStatus) {
+    fontSearchStatus.textContent = filteredOptions.length
+      ? `显示 ${filteredOptions.length} / 共 ${allOptions.length} 个字体`
+      : `没有匹配的字体（显示 0 / 共 ${allOptions.length} 个字体），清空搜索可恢复。`;
+    fontSearchStatus.className = filteredOptions.length ? "hint" : "hint error";
+  }
+  for (const select of fontSelects) {
+    if (!select) continue;
+    const selected = select.value;
+    select.replaceChildren();
+    for (const optionData of filteredOptions) {
+      const option = document.createElement("option");
+      option.value = optionData.value;
+      option.textContent = optionData.label;
+      select.appendChild(option);
+    }
+    if (selected && !Array.from(select.options).some((option) => option.value === selected)) {
+      const option = document.createElement("option");
+      option.value = selected;
+      option.textContent = `已保存：${selected.startsWith("local:") ? selected.slice(6) : selected}`;
+      select.appendChild(option);
+    }
+    if (selected) select.value = selected;
+  }
+}
+
+function ensureFontChoiceOption(select, value) {
+  if (Array.from(select.options).some((option) => option.value === value)) return;
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = value.startsWith("local:") ? `已保存：${value.slice(6)}` : `已保存：${value}`;
+  select.appendChild(option);
+}
+
 function typographyFromControls() {
-  return normalizeTypographySettings({
+  const input = {
     readingFontPreset: readingFontPresetSelect.value,
+    interfaceFontPreset: interfaceFontPresetSelect.value,
+    codeFontPreset: codeFontPresetSelect.value,
+    brandFontSize: brandFontSizeRange.value,
+    titleFontSize: titleFontSizeRange.value,
+    navigationFontSize: navigationFontSizeRange.value,
+    controlFontSize: controlFontSizeRange.value,
+    overviewButtonFontSize: overviewButtonFontSizeRange.value,
+    videoActionButtonSize: videoActionButtonSizeRange.value,
+    metaFontSize: metaFontSizeRange.value,
+    codeFontSize: codeFontSizeRange.value,
     readingFontSize: readingFontSizeRange.value,
     readingLineHeight: readingLineHeightRange.value,
     readingLetterSpacing: readingLetterSpacingRange.value,
-  });
+  };
+  for (const [region, select, range] of regionTypographyControls) {
+    input[`${region}FontPreset`] = select.value;
+    input[`${region}FontSize`] = range.value;
+  }
+  return normalizeTypographySettings(input);
 }
 
 function formatLetterSpacing(value) {
   return `${Number(value).toFixed(2).replace(/0+$/, "").replace(/\.$/, "")} em`;
 }
 
+function applyBrandTextVisibility(value) {
+  const visible = normalizeShowBrandText(value, true);
+  document.querySelectorAll(".brand-name, .brand-sub").forEach((element) => {
+    element.classList.toggle("hidden", !visible);
+  });
+  document.querySelectorAll(".typography-preview-brand").forEach((element) => {
+    element.classList.toggle("hidden", !visible);
+  });
+  if (showBrandTextCheckbox) showBrandTextCheckbox.checked = visible;
+  return visible;
+}
+
 function setTypographyControls(input) {
   const settings = normalizeTypographySettings(input);
+  populateFontOptions();
+  ensureFontChoiceOption(readingFontPresetSelect, settings.readingFontPreset);
+  ensureFontChoiceOption(interfaceFontPresetSelect, settings.interfaceFontPreset);
+  ensureFontChoiceOption(codeFontPresetSelect, settings.codeFontPreset);
+  for (const [region, select] of regionTypographyControls) {
+    ensureFontChoiceOption(select, settings[`${region}FontPreset`]);
+  }
   readingFontPresetSelect.value = settings.readingFontPreset;
+  interfaceFontPresetSelect.value = settings.interfaceFontPreset;
+  codeFontPresetSelect.value = settings.codeFontPreset;
+  for (const [region, select, range, output] of regionTypographyControls) {
+    select.value = settings[`${region}FontPreset`];
+    range.value = String(settings[`${region}FontSize`]);
+    output.value = `${settings[`${region}FontSize`]} px`;
+    output.textContent = `${settings[`${region}FontSize`]} px`;
+  }
+  for (const [range, output, key] of [
+    [brandFontSizeRange, brandFontSizeOutput, "brandFontSize"],
+    [titleFontSizeRange, titleFontSizeOutput, "titleFontSize"],
+    [navigationFontSizeRange, navigationFontSizeOutput, "navigationFontSize"],
+    [controlFontSizeRange, controlFontSizeOutput, "controlFontSize"],
+    [overviewButtonFontSizeRange, overviewButtonFontSizeOutput, "overviewButtonFontSize"],
+    [videoActionButtonSizeRange, videoActionButtonSizeOutput, "videoActionButtonSize"],
+    [metaFontSizeRange, metaFontSizeOutput, "metaFontSize"],
+    [codeFontSizeRange, codeFontSizeOutput, "codeFontSize"],
+  ]) {
+    range.value = String(settings[key]);
+    output.value = `${settings[key]} px`;
+    output.textContent = `${settings[key]} px`;
+  }
   readingFontSizeRange.value = String(settings.readingFontSize);
   readingLineHeightRange.value = settings.readingLineHeight.toFixed(1);
   readingLetterSpacingRange.value = settings.readingLetterSpacing.toFixed(2);
@@ -1633,7 +1884,33 @@ function setTypographyControls(input) {
   readingLetterSpacingOutput.value = String(settings.readingLetterSpacing);
   readingLetterSpacingOutput.textContent = formatLetterSpacing(settings.readingLetterSpacing);
   applyTypographySettings(document.documentElement, settings);
+  applyBrandTextVisibility(showBrandTextCheckbox?.checked);
   return settings;
+}
+
+async function readLocalFonts() {
+  readLocalFontsBtn.disabled = true;
+  localFontsStatus.className = "hint";
+  localFontsStatus.textContent = "正在请求 Chrome 的本机字体访问权限并读取字体…";
+  try {
+    const result = await requestLocalFontList();
+    if (result.granted) {
+      localFontEntries.splice(0, localFontEntries.length, ...result.fonts);
+      const current = typographyFromControls();
+      populateFontOptions();
+      setTypographyControls(current);
+      localFontsStatus.className = "hint ok";
+      localFontsStatus.textContent = `已读取 ${result.fonts.length} 个本机字体，仅在本机使用。`;
+    } else {
+      localFontsStatus.className = "hint error";
+      localFontsStatus.textContent = result.error || "未读取本机字体，内置字体仍可使用。";
+    }
+  } catch (error) {
+    localFontsStatus.className = "hint error";
+    localFontsStatus.textContent = error.message || "读取本机字体失败，内置字体仍可使用。";
+  } finally {
+    readLocalFontsBtn.disabled = false;
+  }
 }
 
 function applyTypographyPreview() {
@@ -1667,21 +1944,18 @@ function getCurrentModelValue() {
 
 async function saveSettings() {
   const baseUrl = baseUrlInput.value.trim();
-  const granted = await ensureHostPermission(baseUrl);
-  if (!granted) {
-    showToast(
-      "未获得该接口地址的访问权限，AI 功能将不可用（请在弹出的对话框中点「允许」）",
-      "error",
-    );
-    return;
-  }
   const settings = {
     aiApiKey: apiKeyInput.value.trim(),
+    asrGroqApiKey: asrGroqApiKeyInput.value.trim(),
+    asrModel: asrModelSelect.value,
+    asrLanguage: asrLanguageSelect.value,
     aiBaseUrl: baseUrl,
     aiModel: getCurrentModelValue(),
     thinkingLevel: thinkingLevelSelect.value,
     targetLanguage: targetLanguageSelect.value,
     customLanguage: customLanguageInput.value.trim(),
+    showMarkButton: showMarkButtonCheckbox.checked,
+    showBrandText: showBrandTextCheckbox.checked,
     ...typographyFromControls(),
   };
   try {
@@ -1693,19 +1967,94 @@ async function saveSettings() {
   }
 }
 
+function downloadJson(text, filename) {
+  const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function exportSettings() {
+  settingsTransferStatus.className = "hint";
+  settingsTransferStatus.textContent = "正在导出已保存设置…";
+  try {
+    const [{ settings }, { theme }] = await Promise.all([
+      send("getSettings"),
+      chrome.storage.local.get("theme"),
+    ]);
+    const includeApiKey = includeApiKeyExportCheckbox.checked;
+    const json = createSettingsBackup(settings, {
+      includeApiKey,
+      theme: theme === "dark" ? "dark" : "light",
+    });
+    const date = new Date().toISOString().slice(0, 10);
+    downloadJson(json, `bili-digest-settings-${date}.json`);
+    settingsTransferStatus.className = "hint ok";
+    settingsTransferStatus.textContent = includeApiKey
+      ? "设置已导出，文件包含 API Key，请妥善保管。"
+      : "设置已导出（不包含 API Key）。";
+  } catch (error) {
+    settingsTransferStatus.className = "hint error";
+    settingsTransferStatus.textContent = error.message;
+  }
+}
+
+async function importSettingsFile() {
+  const file = settingsImportFile.files?.[0];
+  if (!file) return;
+  settingsTransferStatus.className = "hint";
+  settingsTransferStatus.textContent = "正在导入设置…";
+  try {
+    if (file.size > 1024 * 1024) throw new Error("设置文件过大，最大支持 1 MB");
+    const imported = parseSettingsBackup(await file.text());
+    const { settings } = await send("setSettings", { settings: imported.settings });
+    state.settings = settings;
+    if (imported.theme) {
+      await chrome.storage.local.set({ theme: imported.theme });
+      applyTheme(imported.theme);
+    }
+    await loadSettings();
+    settingsTransferStatus.className = "hint ok";
+    settingsTransferStatus.textContent = imported.includesApiKey
+      ? "设置已导入，包含 API Key。"
+      : "设置已导入；当前 API Key 保持不变。";
+  } catch (error) {
+    settingsTransferStatus.className = "hint error";
+    settingsTransferStatus.textContent = error.message;
+  } finally {
+    settingsImportFile.value = "";
+  }
+}
+
+async function testGroqAsr() {
+  asrTestResultEl.className = "hint";
+  asrTestResultEl.textContent = "正在测试 Groq…";
+  testAsrBtn.disabled = true;
+  try {
+    const result = await send("testGroqAsr", {
+      apiKey: asrGroqApiKeyInput.value.trim(),
+    });
+    asrTestResultEl.className = "hint ok";
+    asrTestResultEl.textContent = result.available
+      ? "Groq 连接成功，Whisper 模型可用。"
+      : "Groq 连接成功，但当前模型列表未发现 Whisper。";
+  } catch (error) {
+    asrTestResultEl.className = "hint error";
+    asrTestResultEl.textContent = error.message;
+  } finally {
+    testAsrBtn.disabled = false;
+  }
+}
+
 async function testApiKey() {
   keyTestResultEl.className = "hint";
   keyTestResultEl.textContent = "正在测试…";
   testKeyBtn.disabled = true;
   try {
     const baseUrl = baseUrlInput.value.trim();
-    const granted = await ensureHostPermission(baseUrl);
-    if (!granted) {
-      keyTestResultEl.className = "hint error";
-      keyTestResultEl.textContent =
-        "未授权该接口地址，无法测试（请在弹出的对话框中点「允许」）";
-      return;
-    }
     const result = await send("testApiKey", {
       apiKey: apiKeyInput.value.trim(),
       baseUrl,
@@ -1729,15 +2078,6 @@ async function fetchModelList() {
     modelListHint.textContent = !apiKey
       ? "请先填写 API Key"
       : "请先填写接口地址";
-    modelListHint.classList.remove("hidden");
-    return;
-  }
-
-  const granted = await ensureHostPermission(baseUrl);
-  if (!granted) {
-    modelListHint.className = "hint error";
-    modelListHint.textContent =
-      "未授权该接口地址，无法拉取模型（请在弹出的对话框中点「允许」）";
     modelListHint.classList.remove("hidden");
     return;
   }
@@ -1819,7 +2159,10 @@ document.querySelectorAll(".mode").forEach((button) => {
 
 refreshBtn.addEventListener("click", () => {
   refreshBtn.classList.add("spinning");
-  loadTranscript().finally(() => refreshBtn.classList.remove("spinning"));
+  const task = state.track?.source === "groq-asr"
+    ? generateAsrTranscript({ force: true })
+    : loadTranscript();
+  Promise.resolve(task).finally(() => refreshBtn.classList.remove("spinning"));
 });
 trackSelect.addEventListener("change", () => {
   const lan = trackSelect.value;
@@ -1864,6 +2207,7 @@ chatInput.addEventListener("keydown", (event) => {
 });
 saveSettingsBtn.addEventListener("click", saveSettings);
 testKeyBtn.addEventListener("click", testApiKey);
+testAsrBtn.addEventListener("click", testGroqAsr);
 listModelsBtn.addEventListener("click", fetchModelList);
 modelSelect.addEventListener("change", () => {
   if (modelSelect.value !== "__custom__") modelInput.value = "";
@@ -1878,13 +2222,36 @@ for (const input of [apiKeyInput, baseUrlInput]) {
 targetLanguageSelect.addEventListener("change", updateCustomVisibility);
 for (const input of [
   readingFontPresetSelect,
+  interfaceFontPresetSelect,
+  codeFontPresetSelect,
   readingFontSizeRange,
   readingLineHeightRange,
   readingLetterSpacingRange,
+  brandFontSizeRange,
+  titleFontSizeRange,
+  navigationFontSizeRange,
+  controlFontSizeRange,
+  overviewButtonFontSizeRange,
+  videoActionButtonSizeRange,
+  metaFontSizeRange,
+  codeFontSizeRange,
+  ...regionTypographyControls.flatMap(([, select, range]) => [select, range]),
 ]) {
   input.addEventListener("input", applyTypographyPreview);
   input.addEventListener("change", applyTypographyPreview);
 }
+showBrandTextCheckbox.addEventListener("change", () => {
+  applyBrandTextVisibility(showBrandTextCheckbox.checked);
+  typographyStatus.textContent = "预览已更新；点击“保存设置”后才会写入。";
+  typographyStatus.className = "hint";
+});
+readLocalFontsBtn.addEventListener("click", readLocalFonts);
+exportSettingsBtn.addEventListener("click", exportSettings);
+importSettingsBtn.addEventListener("click", () => settingsImportFile.click());
+settingsImportFile.addEventListener("change", importSettingsFile);
+fontSearchInput.addEventListener("input", () => {
+  populateFontOptions();
+});
 resetTypographyBtn.addEventListener("click", () => {
   setTypographyControls(TYPOGRAPHY_DEFAULTS);
   typographyStatus.textContent = "已恢复默认预览；点击“保存设置”后才会写入。";
@@ -1897,6 +2264,10 @@ document.querySelectorAll(".notes-scope .mode").forEach((button) => {
 toggleKeyBtn.addEventListener("click", () => {
   const showing = apiKeyInput.type === "text";
   apiKeyInput.type = showing ? "password" : "text";
+});
+toggleAsrKeyBtn.addEventListener("click", () => {
+  const showing = asrGroqApiKeyInput.type === "text";
+  asrGroqApiKeyInput.type = showing ? "password" : "text";
 });
 
 closeExplainBtn.addEventListener("click", () => {
@@ -1929,6 +2300,7 @@ chrome.runtime.onMessage.addListener((message) => {
 // ============================================================
 
 loadTheme();
+populateFontOptions();
 loadSettings();
 detectVideo();
 setInterval(detectVideo, 2000);

@@ -27,10 +27,18 @@ import {
   requestModelList,
   parseLooseJson,
 } from "./lib/ai.js";
+import {
+  ASR_MODELS,
+  DEFAULT_ASR_MODEL,
+  testGroqApiKey,
+  transcribeGroqAudio,
+} from "./lib/asr.js";
 import { buildNoteContext, segmentsToText } from "./lib/note-context.js";
 import {
   TYPOGRAPHY_DEFAULTS,
   normalizeTypographySettings,
+  normalizeShowMarkButton,
+  normalizeShowBrandText,
 } from "./lib/typography.js";
 
 const DEBUG = false;
@@ -56,9 +64,14 @@ const DEFAULT_SETTINGS = {
   aiApiKey: "",
   aiBaseUrl: "",
   aiModel: "",
+  asrGroqApiKey: "",
+  asrModel: DEFAULT_ASR_MODEL,
+  asrLanguage: "auto",
   targetLanguage: "English",
   customLanguage: "",
   thinkingLevel: "off",
+  showMarkButton: true,
+  showBrandText: true,
   ...TYPOGRAPHY_DEFAULTS,
 };
 
@@ -66,10 +79,18 @@ const DEFAULT_SETTINGS = {
  * 合并并清洗设置，只保留当前 schema 需要的字段。
  */
 function mergeSettings(base, incoming = {}) {
-  const merged = { ...base, ...incoming };
+  const incomingSettings = incoming && typeof incoming === "object" ? incoming : {};
+  const merged = { ...base, ...incomingSettings };
   merged.aiApiKey = String(merged.aiApiKey ?? "").trim();
   merged.aiBaseUrl = String(merged.aiBaseUrl ?? "").trim();
   merged.aiModel = String(merged.aiModel ?? "").trim();
+  merged.asrGroqApiKey = String(merged.asrGroqApiKey ?? "").trim();
+  merged.asrModel = ASR_MODELS.includes(String(merged.asrModel || ""))
+    ? String(merged.asrModel)
+    : DEFAULT_ASR_MODEL;
+  merged.asrLanguage = ["auto", "zh", "en", "ja"].includes(String(merged.asrLanguage || ""))
+    ? String(merged.asrLanguage)
+    : "auto";
   merged.targetLanguage = String(merged.targetLanguage || "English");
   merged.customLanguage = String(merged.customLanguage || "").trim();
   merged.thinkingLevel = ["off", "low", "medium", "high", "default"].includes(
@@ -77,7 +98,18 @@ function mergeSettings(base, incoming = {}) {
   )
     ? String(merged.thinkingLevel)
     : "off";
-  Object.assign(merged, normalizeTypographySettings(merged));
+  merged.showMarkButton = normalizeShowMarkButton(merged.showMarkButton, true);
+  merged.showBrandText = normalizeShowBrandText(merged.showBrandText, true);
+  // DEFAULT_SETTINGS 里有新字段的默认值，但旧存储没有这些键时必须让
+  // normalizeTypographySettings 看见“缺失”，才能继承旧 reading 设置。
+  const typographyInput = { ...merged };
+  for (const region of ["transcript", "overview", "notes", "chat", "settings"]) {
+    for (const suffix of ["FontPreset", "FontSize"]) {
+      const key = `${region}${suffix}`;
+      if (!Object.prototype.hasOwnProperty.call(incomingSettings, key)) delete typographyInput[key];
+    }
+  }
+  Object.assign(merged, normalizeTypographySettings(typographyInput));
   // 清理旧版多供应商字段，统一到单入口
   delete merged.aiProvider;
   delete merged.providers;
@@ -218,20 +250,23 @@ async function handleGetVideoInfo(bvid, page = 0) {
  * 页面首屏缓存里的 cid 在切 P 后可能仍是 P1，不能直接信。
  */
 async function resolvePartIdentity(bvid, cid, aid, page) {
-  if (Number(page) <= 1) {
-    return { cid: Number(cid) || 0, aid: String(aid || "") };
-  }
+  const normalizedPage = Math.max(1, Number(page) || 1);
+  const knownCid = Number(cid) || 0;
+  const knownAid = String(aid || "");
+
+  // 不直接相信页面传来的 cid。B站 SPA 初始化时即使是非 0 值也可能是旧值，
+  // 始终用 view 接口按 BV + 分 P 解析一次稳定身份；请求失败才回退页面值。
   try {
-    const info = await handleGetVideoInfo(bvid, Number(page));
+    const info = await handleGetVideoInfo(bvid, normalizedPage);
     // view 接口的顶层 cid 不随 p 变化，真正的分集 cid 在 pages 列表里
     const pages = Array.isArray(info.pages) ? info.pages : [];
-    const target = pages[Number(page) - 1];
+    const target = pages[normalizedPage - 1];
     return {
-      cid: Number(target?.cid) || Number(cid) || 0,
-      aid: String(info.aid || aid || ""),
+      cid: Number(target?.cid) || Number(info.cid) || knownCid,
+      aid: String(info.aid || knownAid),
     };
   } catch {
-    return { cid: Number(cid) || 0, aid: String(aid || "") };
+    return { cid: knownCid, aid: knownAid };
   }
 }
 
@@ -309,6 +344,8 @@ async function handleFetchTranscript({ bvid, cid, aid, lan, page }) {
     const { tracks } = await fetchSubtitleTracks(bvid, cid, aid, page);
     trackLan = String(pickChineseTrack(tracks)?.lan || "");
     if (!trackLan) {
+      const cachedAsr = await store.get(asrTranscriptKey(bvid, cid), null);
+      if (cachedAsr?.segments?.length) return { ...cachedAsr, cached: true };
       return { bvid, cid, tracks, track: null, segments: [] };
     }
   }
@@ -322,6 +359,148 @@ async function handleFetchTranscript({ bvid, cid, aid, lan, page }) {
   const record = { ...data, fetchedAt: Date.now() };
   await store.set(key, record);
   return record;
+}
+
+// ============================================================
+// 无字幕视频：Groq Whisper 转写
+// ============================================================
+
+function asrTranscriptKey(bvid, cid) {
+  return `asrTranscript:${bvid}:${cid}`;
+}
+
+function buildGroqTrack(language = "auto") {
+  const languageLabel =
+    language === "zh" ? "中文" : language === "en" ? "English" : language === "ja" ? "日本語" : "自动识别";
+  return {
+    lan: "asr-groq",
+    lan_doc: `AI 字幕 · Groq · ${languageLabel}`,
+    source: "groq-asr",
+  };
+}
+
+function collectAudioUrls(stream) {
+  const urls = [
+    stream?.baseUrl,
+    stream?.base_url,
+    ...(Array.isArray(stream?.backupUrl) ? stream.backupUrl : []),
+    ...(Array.isArray(stream?.backup_url) ? stream.backup_url : []),
+  ];
+  return [...new Set(urls.map((url) => String(url || "").trim()).filter(Boolean))];
+}
+
+async function fetchLowestBiliAudioStream(bvid, cid) {
+  const params = {
+    bvid,
+    cid: String(cid),
+    qn: "16",
+    fnval: "16",
+    fnver: "0",
+    fourk: "0",
+  };
+  let data;
+  try {
+    data = (await signedGet("/x/player/wbi/playurl", params)).data;
+  } catch (wbiError) {
+    debugLog("WBI playurl 失败，回退旧 playurl", wbiError);
+    const qs = new URLSearchParams(params);
+    data = (await fetchJson(`https://api.bilibili.com/x/player/playurl?${qs.toString()}`)).data;
+  }
+  const audio = Array.isArray(data?.dash?.audio) ? data.dash.audio : [];
+  if (!audio.length) throw new Error("B站播放接口没有返回可用的 DASH 音轨");
+
+  const sorted = [...audio].sort((a, b) => {
+    const aId = Number(a?.id) || 0;
+    const bId = Number(b?.id) || 0;
+    if (aId === 30216 && bId !== 30216) return -1;
+    if (bId === 30216 && aId !== 30216) return 1;
+    return (Number(a?.bandwidth) || Infinity) - (Number(b?.bandwidth) || Infinity);
+  });
+  const stream = sorted.find((item) => collectAudioUrls(item).length > 0);
+  if (!stream) throw new Error("B站返回了音轨信息，但没有可下载的媒体地址");
+  return stream;
+}
+
+async function downloadBiliAudio(stream) {
+  const urls = collectAudioUrls(stream);
+  let lastError = null;
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+        headers: {
+          Accept: "audio/mp4,audio/*;q=0.9,*/*;q=0.8",
+          "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        },
+        referrer: "https://www.bilibili.com/",
+        referrerPolicy: "strict-origin-when-cross-origin",
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      if (!blob.size) throw new Error("音频响应为空");
+      return new Blob([blob], { type: stream?.mimeType || stream?.mime_type || blob.type || "audio/mp4" });
+    } catch (error) {
+      lastError = error;
+      debugLog("B站音轨下载地址失败，尝试备用地址", url, error);
+    }
+  }
+  throw new Error(
+    `扩展已取得 B站音轨地址，但浏览器下载音频失败：${lastError?.message || "未知错误"}`,
+  );
+}
+
+async function handleTestGroqAsr({ apiKey }) {
+  return await testGroqApiKey(apiKey);
+}
+
+async function handleGenerateAsrTranscript({ bvid, cid, aid, page, title = "", force = false }) {
+  if (!bvid) throw new Error("未检测到视频 BV 号");
+  ({ cid, aid } = await resolvePartIdentity(bvid, cid, aid, page));
+  if (!cid) {
+    const info = await handleGetVideoInfo(bvid, page);
+    cid = Number(info.cid) || 0;
+  }
+  if (!cid) throw new Error("无法确定当前视频 cid，请刷新视频页后重试");
+
+  const cacheKey = asrTranscriptKey(bvid, cid);
+  if (!force) {
+    const cached = await store.get(cacheKey, null);
+    if (cached?.segments?.length) return { ...cached, cached: true };
+  }
+
+  const settings = await getSettings();
+  if (!settings.asrGroqApiKey) throw new Error("请先在设置中填写 Groq API Key");
+
+  const stream = await fetchLowestBiliAudioStream(bvid, cid);
+  const audioBlob = await downloadBiliAudio(stream);
+  const prompt = title ? `视频标题：${String(title).slice(0, 180)}` : "";
+  const result = await transcribeGroqAudio({
+    apiKey: settings.asrGroqApiKey,
+    blob: audioBlob,
+    model: settings.asrModel,
+    language: settings.asrLanguage,
+    prompt,
+  });
+
+  const track = buildGroqTrack(result.language || settings.asrLanguage);
+  const record = {
+    bvid,
+    cid,
+    tracks: [track],
+    track,
+    segments: result.segments,
+    source: "groq-asr",
+    asrModel: settings.asrModel,
+    asrLanguage: result.language || settings.asrLanguage,
+    audioBytes: audioBlob.size,
+    generatedAt: Date.now(),
+  };
+  await store.set(cacheKey, record);
+  return { ...record, cached: false };
 }
 
 // ============================================================
@@ -753,6 +932,17 @@ async function route(message, sender) {
       return await handleListModels({
         apiKey: message.apiKey,
         baseUrl: message.baseUrl,
+      });
+    case "testGroqAsr":
+      return await handleTestGroqAsr({ apiKey: message.apiKey });
+    case "generateAsrTranscript":
+      return await handleGenerateAsrTranscript({
+        bvid: message.bvid,
+        cid: message.cid,
+        aid: message.aid,
+        page: message.page,
+        title: message.title,
+        force: Boolean(message.force),
       });
     case "getVideoInfo":
       return { info: await handleGetVideoInfo(message.bvid) };

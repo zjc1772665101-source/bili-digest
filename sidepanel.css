@@ -22,17 +22,36 @@
   --ok: #21ba45;
   --danger: #f85a54;
 
-  --font-display: "Stack Sans Headline", "MiSans", "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  --font-body: "Stack Sans Text", "MiSans", "PingFang SC",
+  --interface-font-family: "Stack Sans Text", "MiSans", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --font-mono: "Cascadia Code", "SF Mono", Consolas, ui-monospace, monospace;
+  --code-font-family: ui-monospace, "Cascadia Code", Consolas, "SF Mono", monospace;
+  --font-display: var(--interface-font-family);
+  --font-body: var(--interface-font-family);
+  --font-mono: var(--code-font-family);
 
   --reading-font-family: "Stack Sans Text", "MiSans", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --reading-font-size: 14px;
+  --transcript-font-family: var(--reading-font-family);
+  --overview-font-family: var(--reading-font-family);
+  --notes-font-family: var(--reading-font-family);
+  --chat-font-family: var(--reading-font-family);
+  --settings-font-family: var(--interface-font-family);
+  --transcript-font-size: 14px;
+  --overview-font-size: 14px;
+  --notes-font-size: 14px;
+  --chat-font-size: 14px;
+  --settings-font-size: 14px;
   --reading-line-height: 1.7;
   --reading-letter-spacing: 0em;
+  --type-brand-size: 12px;
+  --type-title-size: 17px;
+  --type-nav-size: 13px;
+  --type-control-size: 13px;
+  --overview-button-font-size: 13px;
+  --video-action-button-size: 44px;
+  --type-meta-size: 12px;
+  --type-code-size: 12px;
 
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -235,6 +254,8 @@ body::after {
   padding: 0 8px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .tab {
@@ -246,6 +267,8 @@ body::after {
   font-family: var(--font-body);
   font-size: 13px;
   cursor: pointer;
+  flex: 0 0 auto;
+  white-space: nowrap;
   transition: color 0.15s ease;
 }
 
@@ -1229,6 +1252,7 @@ select + .field-label,
 
 input[type="password"],
 input[type="text"],
+input[type="search"],
 select {
   width: 100%;
   padding: 8px 11px;
@@ -1250,6 +1274,100 @@ select:focus {
 .typography-controls {
   display: grid;
   gap: 12px;
+}
+
+.font-search-row {
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--line);
+}
+
+.font-search-row .hint {
+  margin-top: 6px;
+}
+
+.typography-regions {
+  padding: 11px 12px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.typography-regions > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: var(--type-control-size);
+  font-weight: 650;
+}
+
+.typography-regions > summary .hint {
+  margin: 0;
+  font-weight: 400;
+}
+
+.typography-region-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.typography-region-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1.25fr) minmax(60px, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.typography-region-row .field-label {
+  margin: 0;
+}
+
+.typography-region-row select {
+  min-width: 0;
+}
+
+.typography-region-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.typography-region-row output {
+  min-width: 42px;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  text-align: right;
+}
+
+.setting-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  color: var(--ink-2);
+  font-size: var(--type-control-size);
+  cursor: pointer;
+}
+
+.setting-switch input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .typography-control .field-label {
@@ -1388,4 +1506,347 @@ select:focus {
     animation-duration: 0.001s !important;
     transition-duration: 0.001s !important;
   }
+}
+
+/* ============ 可调排版变量（与 options 页面保持同一语义） ============ */
+
+body {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-control-size);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-control-size);
+}
+
+/* 笔记和对话正文仍属于阅读区域，保留 reading 字体与倍率。 */
+.note-composer textarea,
+.chat-composer textarea,
+.chat-edit-box textarea {
+  font-family: var(--reading-font-family);
+  font-size: calc(var(--reading-font-size) * 0.929);
+}
+
+.brand-name {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-brand-size);
+}
+
+.brand-sub {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-brand-size);
+}
+
+.video-title,
+.group-title,
+.chat-title {
+  font-size: var(--type-title-size);
+}
+
+.tab,
+.mode {
+  font-size: var(--type-nav-size);
+}
+
+/* 顶部五项标签栏统一使用界面字体与同一个导航字号。 */
+.tabs .tab {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-nav-size);
+}
+
+.field-label,
+label,
+.primary-btn,
+.ghost-btn,
+.icon-btn,
+.note-actions button,
+.quote-actions button,
+.chat-msg-action {
+  font-size: var(--type-control-size);
+}
+
+.hint,
+.status-line,
+.toast,
+.empty-state p,
+.card-label,
+.chat-msg-head,
+.chat-msg-time,
+.video-meta,
+.video-meta-author,
+.video-meta-bv,
+.note-video-title,
+.segment-time,
+.segment-explain,
+.note-time,
+.quote-time,
+.chapter-time,
+.chip {
+  font-size: var(--type-meta-size);
+}
+
+code,
+pre,
+.font-mono,
+.video-meta-bv,
+.segment-time,
+.chapter-time,
+.quote-time,
+.note-time,
+.chip,
+.chat-msg-time,
+.chat-msg-text code {
+  font-family: var(--code-font-family);
+  font-size: var(--type-code-size);
+}
+
+.empty-state .empty-glyph {
+  /* SVG 的几何尺寸保持固定；这里只约束文字。 */
+  width: 30px;
+  height: 30px;
+}
+
+.typography-advanced {
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
+}
+
+.typography-advanced summary {
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: var(--type-control-size);
+}
+
+.typography-advanced-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.local-font-actions {
+  align-items: center;
+}
+
+.typography-preview-brand,
+.typography-preview-title,
+.typography-preview-nav,
+.typography-preview-controls {
+  margin: 0;
+}
+
+.typography-preview-brand {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-brand-size);
+}
+
+.typography-preview-title {
+  font-family: var(--interface-font-family);
+}
+
+.typography-preview-nav {
+  display: flex;
+  gap: 10px;
+  color: var(--ink-2);
+  font-family: var(--interface-font-family);
+  font-size: var(--type-nav-size);
+}
+
+.typography-preview-controls {
+  color: var(--ink-2);
+}
+
+.typography-preview-controls button {
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-family: var(--interface-font-family);
+  font-size: var(--type-control-size);
+}
+
+.typography-preview-overview-button {
+  justify-self: start;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-button-font-size);
+}
+
+.video-button-preview {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.video-button-preview button {
+  width: var(--video-action-button-size);
+  height: var(--video-action-button-size);
+  padding: 0;
+  border: 1px solid #fff;
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+  box-shadow: none;
+  font-size: max(12px, calc(var(--video-action-button-size) * 0.3));
+  font-weight: 650;
+}
+
+.typography-preview code {
+  font-family: var(--code-font-family);
+  font-size: var(--type-code-size);
+}
+
+/* ============ 功能区独立排版（必须位于所有通用规则之后） ============ */
+
+#tab-transcript,
+#tab-transcript *:not(code):not(pre):not(svg) {
+  font-family: var(--transcript-font-family);
+  font-size: var(--transcript-font-size);
+}
+
+#tab-overview,
+#tab-overview *:not(code):not(pre):not(svg) {
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-font-size);
+}
+
+#tab-overview #generateOverviewBtn {
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-button-font-size);
+}
+
+#tab-notes,
+#tab-notes *:not(code):not(pre):not(svg) {
+  font-family: var(--notes-font-family);
+  font-size: var(--notes-font-size);
+}
+
+#tab-chat,
+#tab-chat *:not(code):not(pre):not(svg) {
+  font-family: var(--chat-font-family);
+  font-size: var(--chat-font-size);
+}
+
+#tab-settings,
+#tab-settings *:not(code):not(pre):not(svg) {
+  font-family: var(--settings-font-family);
+  font-size: var(--settings-font-size);
+}
+
+#tab-transcript button,
+#tab-transcript input,
+#tab-transcript select,
+#tab-transcript textarea,
+#tab-overview button,
+#tab-overview input,
+#tab-overview select,
+#tab-overview textarea,
+#tab-notes button,
+#tab-notes input,
+#tab-notes select,
+#tab-notes textarea,
+#tab-chat button,
+#tab-chat input,
+#tab-chat select,
+#tab-chat textarea,
+#tab-settings button,
+#tab-settings input,
+#tab-settings select,
+#tab-settings textarea {
+  font: inherit;
+}
+
+/* 代码内容保留等宽字体与专用字号；SVG 几何尺寸不由区域字号改变。 */
+#tab-transcript code,
+#tab-transcript pre,
+#tab-overview code,
+#tab-overview pre,
+#tab-notes code,
+#tab-notes pre,
+#tab-chat code,
+#tab-chat pre,
+#tab-settings code,
+#tab-settings pre {
+  font-family: var(--code-font-family);
+  font-size: var(--type-code-size);
+}
+
+#tab-settings .typography-preview .typography-preview-region[data-region="transcript"] {
+  font-family: var(--transcript-font-family);
+  font-size: var(--transcript-font-size);
+}
+
+#tab-settings .typography-preview .typography-preview-region[data-region="overview"] {
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-font-size);
+}
+
+#tab-settings .typography-preview .typography-preview-overview-button {
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-button-font-size);
+}
+
+#tab-settings .typography-preview .video-button-preview button {
+  width: var(--video-action-button-size);
+  height: var(--video-action-button-size);
+  font-family: var(--interface-font-family);
+  font-size: max(12px, calc(var(--video-action-button-size) * 0.3));
+}
+
+#tab-settings .typography-preview .typography-preview-region[data-region="notes"] {
+  font-family: var(--notes-font-family);
+  font-size: var(--notes-font-size);
+}
+
+#tab-settings .typography-preview .typography-preview-region[data-region="chat"] {
+  font-family: var(--chat-font-family);
+  font-size: var(--chat-font-size);
+}
+
+#tab-settings .typography-preview .typography-preview-region[data-region="settings"] {
+  font-family: var(--settings-font-family);
+  font-size: var(--settings-font-size);
+}
+
+/* 设置面板的区域继承规则特异性很高，预览再用明确的作用域覆盖它。 */
+#tab-settings .typography-preview .typography-preview-brand {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-brand-size);
+}
+
+#tab-settings .typography-preview .typography-preview-title {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-title-size);
+}
+
+#tab-settings .typography-preview .typography-preview-nav {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-nav-size);
+}
+
+#tab-settings .typography-preview .typography-preview-controls {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-control-size);
+}
+
+/* ============ AI 字幕 ============ */
+.asr-generate-btn {
+  margin-top: 14px;
+  min-width: 128px;
+}
+
+.empty-state .asr-empty-hint {
+  max-width: 360px;
+  margin: 9px auto 0;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  line-height: 1.55;
 }

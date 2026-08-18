@@ -1,9 +1,9 @@
 {
   "name": "bili-digest",
-  "version": "0.3.7",
+  "version": "0.4.2",
   "private": true,
   "type": "module",
-  "description": "把 B站视频变成学习资料的 Chrome 扩展",
+  "description": "把 B站视频变成学习资料的 Chrome 扩展，增强版支持 Groq Whisper 无字幕转写",
   "license": "MIT",
   "scripts": {
     "test": "node --test \"tests/*.test.js\"",
