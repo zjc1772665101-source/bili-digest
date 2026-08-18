@@ -1,4 +1,4 @@
-name: Apply v0.4.2 payload from PR
+name: Publish v0.4.2 release
 
 on:
   pull_request:
@@ -9,44 +9,100 @@ permissions:
   contents: write
 
 jobs:
-  apply:
-    if: github.head_ref == 'release-v0.4.2-final'
-    runs-on: ubuntu-latest
+  publish:
+    if: github.head_ref == 'release-v0.4.2-publish'
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUNTIME_SHA: c36c93a65b776ac1fd36f8e425aed5028efba70d
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout release commit
+        uses: actions/checkout@v4
         with:
-          ref: release-v0.4.2-final
+          ref: ${{ env.RUNTIME_SHA }}
           fetch-depth: 0
-      - name: Apply verified v0.4.2 payload
-        shell: bash
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Preflight checks
+        shell: pwsh
         run: |
-          set -euo pipefail
-          parts=(
-            .release-payload/v042-00.part
-            .release-payload/v042-01a.part
-            .release-payload/v042-01b.part
-            .release-payload/v042-02.part
-            .release-payload/v042-03.part
-            .release-payload/v042-04.part
-            .release-payload/v042-05.part
-            .release-payload/v042-06a.part
-            .release-payload/v042-06b.part
-            .release-payload/v042-07.part
-          )
-          for f in "${parts[@]}"; do
-            test -f "$f"
-          done
-          cat "${parts[@]}" > /tmp/v042.b64
-          echo '487ac47f929d456b8608626d2b7e6e8d9a7479eb5747d62662c330b39ead3da1  /tmp/v042.b64' | sha256sum -c -
-          base64 -d /tmp/v042.b64 > /tmp/v042.tar.gz
-          echo '02ae307dc04bfc8207043d10cb9ec4afaae6f2185f83aad2118c681e79c8b959  /tmp/v042.tar.gz' | sha256sum -c -
-          tar -xzf /tmp/v042.tar.gz -C .
+          $manifest = Get-Content manifest.json -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($manifest.version -ne '0.4.2') { throw "manifest version is $($manifest.version), expected 0.4.2" }
+          if (-not (Test-Path 'lib/asr.js')) { throw 'lib/asr.js missing' }
+          if (-not (Test-Path 'rules/bili-media.json')) { throw 'rules/bili-media.json missing' }
           node scripts/check.js
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          rm -rf .release-payload
-          rm -f .release-test.log
-          rm -f .github/workflows/apply-v042-payload.yml
-          git add -A
-          git commit -m 'release: v0.4.2 final'
-          git push origin HEAD:release-v0.4.2-final
+
+      - name: Build and verify release ZIP
+        shell: pwsh
+        run: |
+          ./scripts/package.ps1
+          $asset = 'dist/bili-digest-plus-v0.4.2.zip'
+          if (-not (Test-Path $asset)) { throw 'release ZIP not created' }
+          $verify = Join-Path $env:RUNNER_TEMP 'bili-digest-v042-verify'
+          if (Test-Path $verify) { Remove-Item $verify -Recurse -Force }
+          Expand-Archive -LiteralPath $asset -DestinationPath $verify -Force
+          $m = Get-Content (Join-Path $verify 'manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($m.version -ne '0.4.2') { throw 'packaged manifest version mismatch' }
+          foreach ($required in @('background.js','sidepanel.js','options.js','lib/asr.js','rules/bili-media.json')) {
+            if (-not (Test-Path (Join-Path $verify $required))) { throw "packaged file missing: $required" }
+          }
+          foreach ($forbidden in @('.github','tests','scripts','.release-payload')) {
+            if (Test-Path (Join-Path $verify $forbidden)) { throw "development-only path leaked into ZIP: $forbidden" }
+          }
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $asset).Hash.ToLowerInvariant()
+          "$hash  bili-digest-plus-v0.4.2.zip" | Set-Content -LiteralPath "$asset.sha256" -Encoding ascii
+          Write-Host "RELEASE_ASSET_SHA256=$hash"
+          Write-Host "RELEASE_ASSET_BYTES=$((Get-Item $asset).Length)"
+
+      - name: Create GitHub Release and upload assets
+        shell: pwsh
+        run: |
+          $asset = 'dist/bili-digest-plus-v0.4.2.zip'
+          $checksum = "$asset.sha256"
+          @'
+          ## Bili Digest Plus v0.4.2
+
+          本次正式版主要更新：
+          - 原生 B站字幕优先；无字幕时可手动使用 Groq Whisper 生成带时间轴字幕。
+          - 支持 Whisper Large V3 / Large V3 Turbo，加入 AI 字幕缓存与概览前自动补字幕流程。
+          - 调整侧栏顺序为「概览 → 字幕 → 对话 → 笔记 → 设置」。
+          - 增强本机字体读取与排版设置。
+          - 加入 Bilibili 媒体请求规则，并保留 HTTPS 自定义 AI Base URL 支持。
+
+          ### 安装
+          下载 `bili-digest-plus-v0.4.2.zip`，解压后在 Chrome 扩展管理页开启开发者模式，选择“加载已解压的扩展程序”。
+
+          同时提供 `.sha256` 文件用于校验下载完整性。
+          '@ | Set-Content -LiteralPath release-notes.md -Encoding UTF8
+
+          git tag -f v0.4.2 $env:RUNTIME_SHA
+          git push origin refs/tags/v0.4.2 --force
+
+          gh release view v0.4.2 *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release edit v0.4.2 --title 'Bili Digest Plus v0.4.2' --notes-file release-notes.md --latest
+          } else {
+            gh release create v0.4.2 --target $env:RUNTIME_SHA --title 'Bili Digest Plus v0.4.2' --notes-file release-notes.md --latest
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'failed to create or edit GitHub Release' }
+
+          gh release upload v0.4.2 $asset $checksum --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'failed to upload release assets' }
+
+          gh release view v0.4.2 --json tagName,name,isDraft,isPrerelease,publishedAt,targetCommitish,url,assets
+
+      - name: Remove temporary release branches
+        if: success()
+        shell: pwsh
+        run: |
+          foreach ($branch in @('release-v0.4.2-final','release-v0.4.2-trigger','chatgpt-groq-asr-build','release-v0.4.2-publish')) {
+            git push origin --delete $branch 2>$null
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "Branch already absent or could not be deleted: $branch"
+              $global:LASTEXITCODE = 0
+            }
+          }
