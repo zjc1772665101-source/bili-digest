@@ -10,6 +10,8 @@ import {
   buildCompletionBody,
   describeHttpError,
   parseLooseJson,
+  requestAiCompletion,
+  requestAiCompletionStream,
 } from "../lib/ai.js";
 
 const MESSAGES = [{ role: "user", content: "你好" }];
@@ -68,11 +70,113 @@ test("completionUrl 去掉末尾斜杠再拼接", () => {
     completionUrl("https://api.openai.com/v1/"),
     "https://api.openai.com/v1/chat/completions",
   );
+  assert.equal(
+    completionUrl("https://api.openai.com/v1/chat/completions"),
+    "https://api.openai.com/v1/chat/completions",
+  );
 });
 
 test("modelsUrl 去掉末尾斜杠再拼接", () => {
   assert.equal(modelsUrl("https://api.openai.com/v1/"), "https://api.openai.com/v1/models");
   assert.equal(modelsUrl("https://api.deepseek.com"), "https://api.deepseek.com/models");
+  assert.equal(
+    modelsUrl("https://api.openai.com/v1/chat/completions"),
+    "https://api.openai.com/v1/models",
+  );
+});
+
+test("AI 请求拒绝非回环 HTTP Base URL", async () => {
+  const originalFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = async () => {
+    called = true;
+    throw new Error("不应发起请求");
+  };
+  try {
+    await assert.rejects(
+      requestAiCompletion(
+        { apiKey: "sk-test", baseUrl: "http://api.example.com/v1", model: "m", kind: "openai" },
+        MESSAGES,
+      ),
+      /必须使用 HTTPS/,
+    );
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("AI 请求允许本机回环 HTTP Base URL", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    assert.equal(url, "http://localhost:11434/v1/chat/completions");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content: "ok" } }] }),
+    };
+  };
+  try {
+    assert.equal(
+      await requestAiCompletion(
+        { apiKey: "local", baseUrl: "http://localhost:11434/v1", model: "m", kind: "openai" },
+        MESSAGES,
+      ),
+      "ok",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("流式响应在 EOF flush TextDecoder 并解析尾部数据", async () => {
+  const originalFetch = globalThis.fetch;
+  const NativeTextDecoder = globalThis.TextDecoder;
+  const text = 'data: {"choices":[{"delta":{"content":"你好"}}]}';
+  const bytes = new TextEncoder().encode(text);
+  class DeferredTextDecoder {
+    constructor() {
+      this.pending = [];
+    }
+
+    decode(value, options) {
+      if (options?.stream) {
+        this.pending.push(value);
+        return "";
+      }
+      const merged = new Uint8Array(this.pending.reduce((total, item) => total + item.length, 0));
+      let offset = 0;
+      for (const item of this.pending) {
+        merged.set(item, offset);
+        offset += item.length;
+      }
+      return new NativeTextDecoder().decode(merged);
+    }
+  }
+  globalThis.TextDecoder = DeferredTextDecoder;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    body: new ReadableStream({
+      start(controller) {
+        controller.enqueue(bytes);
+        controller.close();
+      },
+    }),
+  });
+  try {
+    const deltas = [];
+    const result = await requestAiCompletionStream(
+      { apiKey: "sk-test", baseUrl: "https://api.example.com/v1", model: "m", kind: "openai" },
+      MESSAGES,
+      { onDelta: (delta) => deltas.push(delta) },
+    );
+    assert.equal(result, "你好");
+    assert.deepEqual(deltas, ["你好"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.TextDecoder = NativeTextDecoder;
+  }
 });
 
 test("parseModelList 兼容 data 与 models 结构并去重排序", () => {
