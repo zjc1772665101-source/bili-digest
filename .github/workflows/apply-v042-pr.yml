@@ -21,12 +21,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          parts=(.release-payload/v042-*.part)
-          if [ "${#parts[@]}" -ne 8 ]; then
-            echo "Waiting for all 8 payload chunks; found ${#parts[@]}."
-            exit 0
-          fi
+          parts=(
+            .release-payload/v042-00.part
+            .release-payload/v042-01a.part
+            .release-payload/v042-01b.part
+            .release-payload/v042-02.part
+            .release-payload/v042-03.part
+            .release-payload/v042-04.part
+            .release-payload/v042-05.part
+            .release-payload/v042-06a.part
+            .release-payload/v042-06b.part
+            .release-payload/v042-07.part
+          )
+          for f in "${parts[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "Waiting for $f"
+              exit 0
+            fi
+          done
           cat "${parts[@]}" > /tmp/v042.b64
           echo '487ac47f929d456b8608626d2b7e6e8d9a7479eb5747d62662c330b39ead3da1  /tmp/v042.b64' | sha256sum -c -
           base64 -d /tmp/v042.b64 > /tmp/v042.tar.gz
