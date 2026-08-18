@@ -19,6 +19,7 @@ import { renderMarkdown } from "./lib/markdown.js";
 import {
   TYPOGRAPHY_DEFAULTS,
   applyTypographySettings,
+  filterFontOptions,
   getFontOptions,
   normalizeTypographySettings,
   requestLocalFontList,
@@ -50,6 +51,7 @@ const state = {
     targetLanguage: "English",
     customLanguage: "",
     thinkingLevel: "off",
+    showMarkButton: true,
     ...TYPOGRAPHY_DEFAULTS,
   },
   settingsLoaded: false,
@@ -139,7 +141,22 @@ const metaFontSizeRange = $("metaFontSizeRange");
 const metaFontSizeOutput = $("metaFontSizeOutput");
 const codeFontSizeRange = $("codeFontSizeRange");
 const codeFontSizeOutput = $("codeFontSizeOutput");
-const fontSelects = [readingFontPresetSelect, interfaceFontPresetSelect, codeFontPresetSelect];
+const fontSearchInput = $("fontSearchInput");
+const fontSearchStatus = $("fontSearchStatus");
+const showMarkButtonCheckbox = $("showMarkButtonCheckbox");
+const regionTypographyControls = [
+  ["transcript", $("transcriptFontPresetSelect"), $("transcriptFontSizeRange"), $("transcriptFontSizeOutput")],
+  ["overview", $("overviewFontPresetSelect"), $("overviewFontSizeRange"), $("overviewFontSizeOutput")],
+  ["notes", $("notesFontPresetSelect"), $("notesFontSizeRange"), $("notesFontSizeOutput")],
+  ["chat", $("chatFontPresetSelect"), $("chatFontSizeRange"), $("chatFontSizeOutput")],
+  ["settings", $("settingsFontPresetSelect"), $("settingsFontSizeRange"), $("settingsFontSizeOutput")],
+];
+const fontSelects = [
+  readingFontPresetSelect,
+  interfaceFontPresetSelect,
+  codeFontPresetSelect,
+  ...regionTypographyControls.map(([, select]) => select),
+];
 const localFontEntries = [];
 const regenerateChatBtn = $("regenerateChatBtn");
 const exportChatBtn = $("exportChatBtn");
@@ -1608,6 +1625,7 @@ async function loadSettings() {
     thinkingLevelSelect.value = state.settings.thinkingLevel || "off";
     targetLanguageSelect.value = state.settings.targetLanguage || "English";
     customLanguageInput.value = state.settings.customLanguage || "";
+    showMarkButtonCheckbox.checked = state.settings.showMarkButton !== false;
     updateCustomVisibility();
     setTypographyControls(state.settings);
     state.settingsLoaded = true;
@@ -1628,11 +1646,19 @@ function updateModelCustomVisibility() {
 }
 
 function populateFontOptions() {
+  const allOptions = getFontOptions(localFontEntries);
+  const filteredOptions = filterFontOptions(allOptions, fontSearchInput?.value || "");
+  if (fontSearchStatus) {
+    fontSearchStatus.textContent = filteredOptions.length
+      ? `显示 ${filteredOptions.length} / 共 ${allOptions.length} 个字体`
+      : `没有匹配的字体（显示 0 / 共 ${allOptions.length} 个字体），清空搜索可恢复。`;
+    fontSearchStatus.className = filteredOptions.length ? "hint" : "hint error";
+  }
   for (const select of fontSelects) {
     if (!select) continue;
     const selected = select.value;
     select.replaceChildren();
-    for (const optionData of getFontOptions(localFontEntries)) {
+    for (const optionData of filteredOptions) {
       const option = document.createElement("option");
       option.value = optionData.value;
       option.textContent = optionData.label;
@@ -1657,7 +1683,7 @@ function ensureFontChoiceOption(select, value) {
 }
 
 function typographyFromControls() {
-  return normalizeTypographySettings({
+  const input = {
     readingFontPreset: readingFontPresetSelect.value,
     interfaceFontPreset: interfaceFontPresetSelect.value,
     codeFontPreset: codeFontPresetSelect.value,
@@ -1670,7 +1696,12 @@ function typographyFromControls() {
     readingFontSize: readingFontSizeRange.value,
     readingLineHeight: readingLineHeightRange.value,
     readingLetterSpacing: readingLetterSpacingRange.value,
-  });
+  };
+  for (const [region, select, range] of regionTypographyControls) {
+    input[`${region}FontPreset`] = select.value;
+    input[`${region}FontSize`] = range.value;
+  }
+  return normalizeTypographySettings(input);
 }
 
 function formatLetterSpacing(value) {
@@ -1683,9 +1714,18 @@ function setTypographyControls(input) {
   ensureFontChoiceOption(readingFontPresetSelect, settings.readingFontPreset);
   ensureFontChoiceOption(interfaceFontPresetSelect, settings.interfaceFontPreset);
   ensureFontChoiceOption(codeFontPresetSelect, settings.codeFontPreset);
+  for (const [region, select] of regionTypographyControls) {
+    ensureFontChoiceOption(select, settings[`${region}FontPreset`]);
+  }
   readingFontPresetSelect.value = settings.readingFontPreset;
   interfaceFontPresetSelect.value = settings.interfaceFontPreset;
   codeFontPresetSelect.value = settings.codeFontPreset;
+  for (const [region, select, range, output] of regionTypographyControls) {
+    select.value = settings[`${region}FontPreset`];
+    range.value = String(settings[`${region}FontSize`]);
+    output.value = `${settings[`${region}FontSize`]} px`;
+    output.textContent = `${settings[`${region}FontSize`]} px`;
+  }
   for (const [range, output, key] of [
     [brandFontSizeRange, brandFontSizeOutput, "brandFontSize"],
     [titleFontSizeRange, titleFontSizeOutput, "titleFontSize"],
@@ -1782,6 +1822,7 @@ async function saveSettings() {
     thinkingLevel: thinkingLevelSelect.value,
     targetLanguage: targetLanguageSelect.value,
     customLanguage: customLanguageInput.value.trim(),
+    showMarkButton: showMarkButtonCheckbox.checked,
     ...typographyFromControls(),
   };
   try {
@@ -1989,11 +2030,15 @@ for (const input of [
   controlFontSizeRange,
   metaFontSizeRange,
   codeFontSizeRange,
+  ...regionTypographyControls.flatMap(([, select, range]) => [select, range]),
 ]) {
   input.addEventListener("input", applyTypographyPreview);
   input.addEventListener("change", applyTypographyPreview);
 }
 readLocalFontsBtn.addEventListener("click", readLocalFonts);
+fontSearchInput.addEventListener("input", () => {
+  populateFontOptions();
+});
 resetTypographyBtn.addEventListener("click", () => {
   setTypographyControls(TYPOGRAPHY_DEFAULTS);
   typographyStatus.textContent = "已恢复默认预览；点击“保存设置”后才会写入。";

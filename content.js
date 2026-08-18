@@ -16,6 +16,7 @@ const debugLog = (...args) => {
 
 let buttonHost = null;
 let noteButtonHost = null;
+let showMarkButton = true;
 let noteSaving = false;
 let noteKeyboardListenerAdded = false;
 let lastUrl = location.href;
@@ -355,7 +356,18 @@ function ensureNoteButtonHost() {
   return noteButtonHost;
 }
 
+function removeNoteButtonHost() {
+  if (noteButtonHost) {
+    noteButtonHost.remove();
+    noteButtonHost = null;
+  }
+}
+
 function updateNoteButton() {
+  if (!showMarkButton) {
+    removeNoteButtonHost();
+    return;
+  }
   const video = document.querySelector("video");
   const visible = Boolean(getBvid() && video);
   if (!visible) {
@@ -380,6 +392,10 @@ function getFullscreenTarget() {
 }
 
 function positionNoteButton() {
+  if (!showMarkButton) {
+    removeNoteButtonHost();
+    return;
+  }
   const fullscreenTarget = getFullscreenTarget();
   if (fullscreenTarget) {
     ensureNoteButtonHost();
@@ -401,6 +417,7 @@ function positionNoteButton() {
 }
 
 async function captureCurrentNote() {
+  if (!showMarkButton) return;
   if (noteSaving) return;
   const context = getVideoContext();
   if (!context.bvid) return;
@@ -438,6 +455,7 @@ async function captureCurrentNote() {
 }
 
 function handleNoteKeyboardShortcut(event) {
+  if (!showMarkButton) return;
   if (event.key && event.key.toLowerCase() !== "n") return;
   if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
   const active = document.activeElement;
@@ -474,6 +492,23 @@ function watchNavigation() {
     updateButton();
     updateNoteButton();
   }, 1000);
+}
+
+function applyShowMarkButton(value) {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : value;
+  showMarkButton = normalized !== false && !["false", "0", "off", "no"].includes(normalized);
+  if (!showMarkButton) removeNoteButtonHost();
+  updateNoteButton();
+  if (showMarkButton) positionNoteButton();
+}
+
+async function loadShowMarkButtonSetting() {
+  try {
+    const result = await chrome.storage.local.get("settings");
+    applyShowMarkButton(result?.settings?.showMarkButton);
+  } catch {
+    applyShowMarkButton(true);
+  }
 }
 
 // ============================================================
@@ -518,9 +553,14 @@ function init() {
   window.addEventListener("resize", () => scheduleUpdate(100), { passive: true });
   document.addEventListener("fullscreenchange", positionNoteButton);
   document.addEventListener("webkitfullscreenchange", positionNoteButton);
+  chrome.storage?.onChanged?.addListener((changes, areaName) => {
+    if (areaName !== "local" || !changes.settings) return;
+    applyShowMarkButton(changes.settings.newValue?.showMarkButton);
+  });
   watchNavigation();
   updateButton();
   updateNoteButton();
+  loadShowMarkButtonSetting();
 }
 
 if (document.readyState === "loading") {

@@ -31,6 +31,7 @@ import { buildNoteContext, segmentsToText } from "./lib/note-context.js";
 import {
   TYPOGRAPHY_DEFAULTS,
   normalizeTypographySettings,
+  normalizeShowMarkButton,
 } from "./lib/typography.js";
 
 const DEBUG = false;
@@ -59,6 +60,7 @@ const DEFAULT_SETTINGS = {
   targetLanguage: "English",
   customLanguage: "",
   thinkingLevel: "off",
+  showMarkButton: true,
   ...TYPOGRAPHY_DEFAULTS,
 };
 
@@ -66,7 +68,8 @@ const DEFAULT_SETTINGS = {
  * 合并并清洗设置，只保留当前 schema 需要的字段。
  */
 function mergeSettings(base, incoming = {}) {
-  const merged = { ...base, ...incoming };
+  const incomingSettings = incoming && typeof incoming === "object" ? incoming : {};
+  const merged = { ...base, ...incomingSettings };
   merged.aiApiKey = String(merged.aiApiKey ?? "").trim();
   merged.aiBaseUrl = String(merged.aiBaseUrl ?? "").trim();
   merged.aiModel = String(merged.aiModel ?? "").trim();
@@ -77,7 +80,17 @@ function mergeSettings(base, incoming = {}) {
   )
     ? String(merged.thinkingLevel)
     : "off";
-  Object.assign(merged, normalizeTypographySettings(merged));
+  merged.showMarkButton = normalizeShowMarkButton(merged.showMarkButton, true);
+  // DEFAULT_SETTINGS 里有新字段的默认值，但旧存储没有这些键时必须让
+  // normalizeTypographySettings 看见“缺失”，才能继承旧 reading 设置。
+  const typographyInput = { ...merged };
+  for (const region of ["transcript", "overview", "notes", "chat", "settings"]) {
+    for (const suffix of ["FontPreset", "FontSize"]) {
+      const key = `${region}${suffix}`;
+      if (!Object.prototype.hasOwnProperty.call(incomingSettings, key)) delete typographyInput[key];
+    }
+  }
+  Object.assign(merged, normalizeTypographySettings(typographyInput));
   // 清理旧版多供应商字段，统一到单入口
   delete merged.aiProvider;
   delete merged.providers;

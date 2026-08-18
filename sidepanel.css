@@ -32,6 +32,16 @@
   --reading-font-family: "Stack Sans Text", "MiSans", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --reading-font-size: 14px;
+  --transcript-font-family: var(--reading-font-family);
+  --overview-font-family: var(--reading-font-family);
+  --notes-font-family: var(--reading-font-family);
+  --chat-font-family: var(--reading-font-family);
+  --settings-font-family: var(--interface-font-family);
+  --transcript-font-size: 14px;
+  --overview-font-size: 14px;
+  --notes-font-size: 14px;
+  --chat-font-size: 14px;
+  --settings-font-size: 14px;
   --reading-line-height: 1.7;
   --reading-letter-spacing: 0em;
   --type-brand-size: 12px;
@@ -242,6 +252,8 @@ body::after {
   padding: 0 8px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .tab {
@@ -253,6 +265,8 @@ body::after {
   font-family: var(--font-body);
   font-size: 13px;
   cursor: pointer;
+  flex: 0 0 auto;
+  white-space: nowrap;
   transition: color 0.15s ease;
 }
 
@@ -1236,6 +1250,7 @@ select + .field-label,
 
 input[type="password"],
 input[type="text"],
+input[type="search"],
 select {
   width: 100%;
   padding: 8px 11px;
@@ -1257,6 +1272,100 @@ select:focus {
 .typography-controls {
   display: grid;
   gap: 12px;
+}
+
+.font-search-row {
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--line);
+}
+
+.font-search-row .hint {
+  margin-top: 6px;
+}
+
+.typography-regions {
+  padding: 11px 12px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.typography-regions > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: var(--type-control-size);
+  font-weight: 650;
+}
+
+.typography-regions > summary .hint {
+  margin: 0;
+  font-weight: 400;
+}
+
+.typography-region-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.typography-region-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1.25fr) minmax(60px, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.typography-region-row .field-label {
+  margin: 0;
+}
+
+.typography-region-row select {
+  min-width: 0;
+}
+
+.typography-region-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.typography-region-row output {
+  min-width: 42px;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  text-align: right;
+}
+
+.setting-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  color: var(--ink-2);
+  font-size: var(--type-control-size);
+  cursor: pointer;
+}
+
+.setting-switch input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .typography-control .field-label {
@@ -1555,4 +1664,124 @@ pre,
 .typography-preview code {
   font-family: var(--code-font-family);
   font-size: var(--type-code-size);
+}
+
+/* ============ 功能区独立排版（必须位于所有通用规则之后） ============ */
+
+.tab[data-tab="transcript"] {
+  font-family: var(--transcript-font-family);
+  font-size: var(--transcript-font-size);
+}
+
+#tab-transcript,
+#tab-transcript *:not(code):not(pre):not(svg) {
+  font-family: var(--transcript-font-family);
+  font-size: var(--transcript-font-size);
+}
+
+.tab[data-tab="overview"] {
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-font-size);
+}
+
+#tab-overview,
+#tab-overview *:not(code):not(pre):not(svg) {
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-font-size);
+}
+
+.tab[data-tab="notes"] {
+  font-family: var(--notes-font-family);
+  font-size: var(--notes-font-size);
+}
+
+#tab-notes,
+#tab-notes *:not(code):not(pre):not(svg) {
+  font-family: var(--notes-font-family);
+  font-size: var(--notes-font-size);
+}
+
+.tab[data-tab="chat"] {
+  font-family: var(--chat-font-family);
+  font-size: var(--chat-font-size);
+}
+
+#tab-chat,
+#tab-chat *:not(code):not(pre):not(svg) {
+  font-family: var(--chat-font-family);
+  font-size: var(--chat-font-size);
+}
+
+.tab[data-tab="settings"] {
+  font-family: var(--settings-font-family);
+  font-size: var(--settings-font-size);
+}
+
+#tab-settings,
+#tab-settings *:not(code):not(pre):not(svg) {
+  font-family: var(--settings-font-family);
+  font-size: var(--settings-font-size);
+}
+
+#tab-transcript button,
+#tab-transcript input,
+#tab-transcript select,
+#tab-transcript textarea,
+#tab-overview button,
+#tab-overview input,
+#tab-overview select,
+#tab-overview textarea,
+#tab-notes button,
+#tab-notes input,
+#tab-notes select,
+#tab-notes textarea,
+#tab-chat button,
+#tab-chat input,
+#tab-chat select,
+#tab-chat textarea,
+#tab-settings button,
+#tab-settings input,
+#tab-settings select,
+#tab-settings textarea {
+  font: inherit;
+}
+
+/* 代码内容保留等宽字体与专用字号；SVG 几何尺寸不由区域字号改变。 */
+#tab-transcript code,
+#tab-transcript pre,
+#tab-overview code,
+#tab-overview pre,
+#tab-notes code,
+#tab-notes pre,
+#tab-chat code,
+#tab-chat pre,
+#tab-settings code,
+#tab-settings pre {
+  font-family: var(--code-font-family);
+  font-size: var(--type-code-size);
+}
+
+#tab-settings .typography-preview-region[data-region="transcript"] {
+  font-family: var(--transcript-font-family);
+  font-size: var(--transcript-font-size);
+}
+
+#tab-settings .typography-preview-region[data-region="overview"] {
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-font-size);
+}
+
+#tab-settings .typography-preview-region[data-region="notes"] {
+  font-family: var(--notes-font-family);
+  font-size: var(--notes-font-size);
+}
+
+#tab-settings .typography-preview-region[data-region="chat"] {
+  font-family: var(--chat-font-family);
+  font-size: var(--chat-font-size);
+}
+
+#tab-settings .typography-preview-region[data-region="settings"] {
+  font-family: var(--settings-font-family);
+  font-size: var(--settings-font-size);
 }

@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   TYPOGRAPHY_DEFAULTS,
   TYPOGRAPHY_LIMITS,
   TYPOGRAPHY_PRESETS,
   applyTypographySettings,
+  filterFontOptions,
   getFontOptions,
   normalizeFontChoice,
   normalizeTypographySettings,
@@ -12,12 +14,17 @@ import {
   sanitizeLocalFontName,
   typographyFontFamily,
   typographyToCssVars,
+  normalizeShowMarkButton,
 } from "../lib/typography.js";
 
-test("默认 schema 覆盖三个字体选择和所有区域字号", () => {
+test("默认 schema 覆盖全局与五个功能区字体/字号", () => {
   assert.deepEqual(normalizeTypographySettings({}), TYPOGRAPHY_DEFAULTS);
   assert.equal(TYPOGRAPHY_DEFAULTS.interfaceFontPreset, "default");
   assert.equal(TYPOGRAPHY_DEFAULTS.codeFontPreset, "mono");
+  for (const region of ["transcript", "overview", "notes", "chat", "settings"]) {
+    assert.equal(TYPOGRAPHY_DEFAULTS[`${region}FontPreset`], "default");
+    assert.equal(TYPOGRAPHY_DEFAULTS[`${region}FontSize`], 14);
+  }
   for (const key of [
     "brandFontSize",
     "titleFontSize",
@@ -26,6 +33,11 @@ test("默认 schema 覆盖三个字体选择和所有区域字号", () => {
     "metaFontSize",
     "codeFontSize",
     "readingFontSize",
+    "transcriptFontSize",
+    "overviewFontSize",
+    "notesFontSize",
+    "chatFontSize",
+    "settingsFontSize",
   ]) {
     assert.ok(TYPOGRAPHY_LIMITS[key].min <= TYPOGRAPHY_DEFAULTS[key]);
     assert.ok(TYPOGRAPHY_DEFAULTS[key] <= TYPOGRAPHY_LIMITS[key].max);
@@ -42,6 +54,29 @@ test("字号全部夹取到边界并按步长量化", () => {
   assert.equal(normalizeTypographySettings({ titleFontSize: "12" }).titleFontSize, 12);
   assert.equal(normalizeTypographySettings({ readingLineHeight: "1.76" }).readingLineHeight, 1.8);
   assert.equal(normalizeTypographySettings({ readingLetterSpacing: "0.034" }).readingLetterSpacing, 0.03);
+});
+
+test("旧 reading 字体和字号会作为缺失功能区设置的回退", () => {
+  const normalized = normalizeTypographySettings({
+    readingFontPreset: "serif",
+    readingFontSize: 22,
+  });
+  for (const region of ["transcript", "overview", "notes", "chat", "settings"]) {
+    assert.equal(normalized[`${region}FontPreset`], "serif");
+    assert.equal(normalized[`${region}FontSize`], 22);
+  }
+  const explicit = normalizeTypographySettings({
+    readingFontPreset: "serif",
+    readingFontSize: 22,
+    transcriptFontPreset: "jetbrains",
+    transcriptFontSize: 30,
+    overviewFontPreset: "not-safe",
+    overviewFontSize: -10,
+  });
+  assert.equal(explicit.transcriptFontPreset, "jetbrains");
+  assert.equal(explicit.transcriptFontSize, 30);
+  assert.equal(explicit.overviewFontPreset, "serif");
+  assert.equal(explicit.overviewFontSize, 12);
 });
 
 test("所有固定字体预设都有安全栈，未知值回退", () => {
@@ -91,6 +126,20 @@ test("字体 option 覆盖预设、去重并允许安全本机字体", () => {
   assert.ok(options.some((option) => option.value === "jetbrains"));
 });
 
+test("字体搜索按 NFKC、大小写、空白和连字符容错，且不改写 option", () => {
+  const options = getFontOptions([
+    { fontId: "Source Sans", displayName: "思源黑体" },
+    { fontId: "Cascadia Code", displayName: "Cascadia Code" },
+  ]);
+  const original = options[0];
+  assert.equal(filterFontOptions(options, "" ).length, options.length);
+  assert.ok(filterFontOptions(options, "cascadia-code").some((item) => item.value === "local:Cascadia Code"));
+  assert.ok(filterFontOptions(options, "思源 黑体").some((item) => item.value === "local:Source Sans"));
+  assert.ok(filterFontOptions(options, "ＳＥＲＩＦ").some((item) => item.value === "serif"));
+  assert.equal(filterFontOptions(options, "no-such-font").length, 0);
+  assert.equal(options[0], original);
+});
+
 test("CSS vars 完整且只来自清洗值", () => {
   const vars = typographyToCssVars({
     readingFontPreset: "local:My Font",
@@ -117,6 +166,16 @@ test("CSS vars 完整且只来自清洗值", () => {
     "--type-code-size",
     "--reading-font-family",
     "--reading-font-size",
+    "--transcript-font-family",
+    "--overview-font-family",
+    "--notes-font-family",
+    "--chat-font-family",
+    "--settings-font-family",
+    "--transcript-font-size",
+    "--overview-font-size",
+    "--notes-font-size",
+    "--chat-font-size",
+    "--settings-font-size",
     "--reading-line-height",
     "--reading-letter-spacing",
   ]) {
@@ -126,6 +185,7 @@ test("CSS vars 完整且只来自清洗值", () => {
   assert.equal(vars["--code-font-family"], typographyFontFamily("mono"));
   assert.equal(vars["--type-title-size"], "30px");
   assert.equal(vars["--reading-font-size"], "14px");
+  assert.equal(vars["--transcript-font-size"], "14px");
   assert.equal(vars["--reading-line-height"], "1.7");
   assert.ok(!Object.values(vars).some((value) => /[{};<>]|--evil|pxpx/.test(value)));
 });
@@ -164,6 +224,16 @@ test("旧 reading 设置兼容且不混入 AI/翻译字段", () => {
     ...TYPOGRAPHY_DEFAULTS,
     readingFontPreset: "serif",
     readingFontSize: 22,
+    transcriptFontPreset: "serif",
+    overviewFontPreset: "serif",
+    notesFontPreset: "serif",
+    chatFontPreset: "serif",
+    settingsFontPreset: "serif",
+    transcriptFontSize: 22,
+    overviewFontSize: 22,
+    notesFontSize: 22,
+    chatFontSize: 22,
+    settingsFontSize: 22,
     readingLineHeight: 1.8,
     readingLetterSpacing: 0.03,
   });
@@ -188,4 +258,155 @@ test("本机字体权限仅在显式 requestLocalFontList 时调用且兼容回�
   assert.deepEqual(calls, [{ permissions: ["fontSettings"] }]);
   assert.equal(result.granted, true);
   assert.equal(result.fonts[0].fontId, "Arial");
+});
+
+test("字体权限先无 API，授权后重新读取并发现 fontSettings", async () => {
+  const chromeApi = {
+    permissions: {
+      async contains() {
+        return false;
+      },
+      async request() {
+        chromeApi.fontSettings = {
+          getFontList() {
+            return Promise.resolve([{ fontId: "Arial", displayName: "Arial" }]);
+          },
+        };
+        return true;
+      },
+    },
+  };
+  const result = await requestLocalFontList(chromeApi);
+  assert.equal(result.granted, true);
+  assert.equal(result.fonts[0].fontId, "Arial");
+});
+
+test("字体权限 contains/request 的回调 API 也能工作", async () => {
+  const calls = [];
+  const result = await requestLocalFontList({
+    permissions: {
+      contains(value, callback) {
+        calls.push(["contains", value]);
+        callback(false);
+      },
+      request(value, callback) {
+        calls.push(["request", value]);
+        callback(true);
+      },
+    },
+    fontSettings: {
+      getFontList(callback) {
+        callback([{ fontId: "Arial", displayName: "Arial" }]);
+      },
+    },
+  });
+  assert.deepEqual(calls.map(([name]) => name), ["contains", "request"]);
+  assert.equal(result.granted, true);
+  assert.equal(result.fonts.length, 1);
+});
+
+test("已授予字体权限时优先 contains，不重复 request", async () => {
+  let requestCalls = 0;
+  const result = await requestLocalFontList({
+    permissions: {
+      async contains() {
+        return true;
+      },
+      async request() {
+        requestCalls += 1;
+        return false;
+      },
+    },
+    fontSettings: {
+      getFontList: async () => [{ fontId: "MiSans", displayName: "MiSans" }],
+    },
+  });
+  assert.equal(requestCalls, 0);
+  assert.equal(result.granted, true);
+  assert.equal(result.fonts[0].fontId, "MiSans");
+});
+
+test("字体权限拒绝和 request 异常分别返回可识别结果", async () => {
+  const denied = await requestLocalFontList({
+    permissions: {
+      async contains() {
+        return false;
+      },
+      async request() {
+        return false;
+      },
+    },
+  });
+  assert.equal(denied.supported, true);
+  assert.equal(denied.granted, false);
+  assert.match(denied.error, /未获得/);
+
+  const rejected = await requestLocalFontList({
+    permissions: {
+      async request() {
+        throw new Error("denied");
+      },
+    },
+  });
+  assert.equal(rejected.supported, true);
+  assert.equal(rejected.granted, false);
+  assert.match(rejected.error, /申请失败/);
+});
+
+test("授权后 fontSettings 仍缺失时提示重新加载，而不是 unsupported", async () => {
+  const result = await requestLocalFontList({
+    permissions: {
+      async request() {
+        return true;
+      },
+    },
+  });
+  assert.equal(result.supported, true);
+  assert.equal(result.granted, true);
+  assert.equal(result.reloadRequired, true);
+  assert.match(result.error, /重新加载扩展/);
+});
+
+test("showMarkButton 缺失默认开启并严格归一化布尔值", () => {
+  assert.equal(normalizeShowMarkButton(undefined), true);
+  assert.equal(normalizeShowMarkButton("false"), false);
+  assert.equal(normalizeShowMarkButton("0"), false);
+  assert.equal(normalizeShowMarkButton("true"), true);
+  assert.equal(normalizeShowMarkButton(false), false);
+});
+
+test("选项页与侧边栏共享五个功能区控件，CSS 具备对应变量和作用域", async () => {
+  const [optionsHtml, sidepanelHtml, sidepanelCss, optionsJs, sidepanelJs, backgroundJs, contentJs] = await Promise.all([
+    readFile(new URL("../options.html", import.meta.url), "utf8"),
+    readFile(new URL("../sidepanel.html", import.meta.url), "utf8"),
+    readFile(new URL("../sidepanel.css", import.meta.url), "utf8"),
+    readFile(new URL("../options.js", import.meta.url), "utf8"),
+    readFile(new URL("../sidepanel.js", import.meta.url), "utf8"),
+    readFile(new URL("../background.js", import.meta.url), "utf8"),
+    readFile(new URL("../content.js", import.meta.url), "utf8"),
+  ]);
+  for (const html of [optionsHtml, sidepanelHtml]) {
+    assert.match(html, /id="fontSearchInput"/);
+    assert.match(html, /id="fontSearchStatus"[^>]*role="status"/);
+    assert.match(html, /id="showMarkButtonCheckbox"/);
+    for (const region of ["transcript", "overview", "notes", "chat", "settings"]) {
+      assert.match(html, new RegExp(`id="${region}FontPresetSelect"`));
+      assert.match(html, new RegExp(`id="${region}FontSizeRange"[^>]*min="12"[^>]*max="30"`));
+      assert.match(html, new RegExp(`id="${region}FontSizeOutput"`));
+    }
+  }
+  for (const region of ["transcript", "overview", "notes", "chat", "settings"]) {
+    assert.match(sidepanelCss, new RegExp(`--${region}-font-family`));
+    assert.match(sidepanelCss, new RegExp(`--${region}-font-size`));
+    assert.match(sidepanelCss, new RegExp(`#tab-${region}`));
+    assert.match(sidepanelCss, new RegExp(`data-tab=\\"${region}\\"`));
+  }
+  assert.match(optionsJs, /filterFontOptions/);
+  assert.match(sidepanelJs, /filterFontOptions/);
+  assert.match(optionsJs, /showMarkButtonCheckbox\.checked/);
+  assert.match(sidepanelJs, /showMarkButtonCheckbox\.checked/);
+  assert.match(backgroundJs, /showMarkButton: true/);
+  assert.match(backgroundJs, /normalizeShowMarkButton/);
+  assert.match(contentJs, /storage\?\.onChanged/);
+  assert.match(contentJs, /removeNoteButtonHost/);
 });
