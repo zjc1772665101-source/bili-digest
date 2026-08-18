@@ -44,12 +44,23 @@ jobs:
           base64 -d /tmp/v042.b64 > /tmp/v042.tar.gz
           echo '02ae307dc04bfc8207043d10cb9ec4afaae6f2185f83aad2118c681e79c8b959  /tmp/v042.tar.gz' | sha256sum -c -
           tar -xzf /tmp/v042.tar.gz -C .
-          rm -rf .release-payload
-          rm -f .github/workflows/apply-v042-payload.yml
           node scripts/check.js
-          npm test
+          set +e
+          npm test 2>&1 | tee /tmp/v042-test.log
+          test_status=${PIPESTATUS[0]}
+          set -e
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if [ "$test_status" -ne 0 ]; then
+            cp /tmp/v042-test.log .release-test.log
+            git add .release-test.log
+            git commit -m 'ci: capture v0.4.2 test failure' || true
+            git push origin HEAD:release-v0.4.2-final
+            exit "$test_status"
+          fi
+          rm -rf .release-payload
+          rm -f .release-test.log
+          rm -f .github/workflows/apply-v042-payload.yml
           git add -A
           git commit -m 'release: v0.4.2 final'
           git push origin HEAD:release-v0.4.2-final
