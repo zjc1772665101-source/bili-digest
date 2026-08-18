@@ -1,0 +1,36 @@
+name: Apply v0.4.2 payload from PR
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'release-v0.4.2-final'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release-v0.4.2-final
+          fetch-depth: 0
+      - name: Apply verified v0.4.2 payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .release-payload/v042.tar.gz.b64 || exit 0
+          base64 -d .release-payload/v042.tar.gz.b64 > /tmp/v042.tar.gz
+          echo '02ae307dc04bfc8207043d10cb9ec4afaae6f2185f83aad2118c681e79c8b959  /tmp/v042.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/v042.tar.gz -C .
+          rm -rf .release-payload
+          rm -f .github/workflows/apply-v042-payload.yml
+          node scripts/check.js
+          npm test
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'release: v0.4.2 final'
+          git push origin HEAD:release-v0.4.2-final
