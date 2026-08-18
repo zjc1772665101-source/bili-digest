@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   publish:
-    if: github.head_ref == 'release-v0.4.2-publish'
+    if: github.head_ref == 'release-v0.4.2-trigger'
     runs-on: windows-latest
     env:
       GH_TOKEN: ${{ github.token }}
@@ -99,7 +99,7 @@ jobs:
         if: success()
         shell: pwsh
         run: |
-          foreach ($branch in @('release-v0.4.2-final','release-v0.4.2-trigger','chatgpt-groq-asr-build','release-v0.4.2-publish')) {
+          foreach ($branch in @('release-v0.4.2-final','release-v0.4.2-trigger','chatgpt-groq-asr-build')) {
             git push origin --delete $branch 2>$null
             if ($LASTEXITCODE -ne 0) {
               Write-Host "Branch already absent or could not be deleted: $branch"
