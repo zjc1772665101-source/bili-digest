@@ -38,6 +38,8 @@
   --type-title-size: 17px;
   --type-nav-size: 13px;
   --type-control-size: 13px;
+  --overview-button-font-size: 13px;
+  --video-action-button-size: 44px;
   --type-meta-size: 12px;
   --type-code-size: 12px;
 
@@ -436,6 +438,36 @@ textarea {
 label,
 .typography-preview-controls button {
   font-size: var(--type-control-size);
+}
+
+.typography-preview-overview-button {
+  justify-self: start;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-button-font-size);
+}
+
+.video-button-preview {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.video-button-preview button {
+  width: var(--video-action-button-size);
+  height: var(--video-action-button-size);
+  padding: 0;
+  border: 1px solid #fff;
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+  box-shadow: none;
+  font-size: max(12px, calc(var(--video-action-button-size) * 0.3));
+  font-weight: 650;
 }
 
 .hint,

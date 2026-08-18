@@ -11,6 +11,7 @@ import {
   normalizeTypographySettings,
   requestLocalFontList,
 } from "./lib/typography.js";
+import { createSettingsBackup, parseSettingsBackup } from "./lib/settings-transfer.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -50,6 +51,10 @@ const navigationFontSizeRange = $("navigationFontSizeRange");
 const navigationFontSizeOutput = $("navigationFontSizeOutput");
 const controlFontSizeRange = $("controlFontSizeRange");
 const controlFontSizeOutput = $("controlFontSizeOutput");
+const overviewButtonFontSizeRange = $("overviewButtonFontSizeRange");
+const overviewButtonFontSizeOutput = $("overviewButtonFontSizeOutput");
+const videoActionButtonSizeRange = $("videoActionButtonSizeRange");
+const videoActionButtonSizeOutput = $("videoActionButtonSizeOutput");
 const metaFontSizeRange = $("metaFontSizeRange");
 const metaFontSizeOutput = $("metaFontSizeOutput");
 const codeFontSizeRange = $("codeFontSizeRange");
@@ -58,6 +63,11 @@ const fontSearchInput = $("fontSearchInput");
 const fontSearchStatus = $("fontSearchStatus");
 const showMarkButtonCheckbox = $("showMarkButtonCheckbox");
 const showBrandTextCheckbox = $("showBrandTextCheckbox");
+const includeApiKeyExportCheckbox = $("includeApiKeyExportCheckbox");
+const exportSettingsBtn = $("exportSettingsBtn");
+const importSettingsBtn = $("importSettingsBtn");
+const settingsImportFile = $("settingsImportFile");
+const settingsTransferStatus = $("settingsTransferStatus");
 const regionTypographyControls = [
   ["transcript", $("transcriptFontPresetSelect"), $("transcriptFontSizeRange"), $("transcriptFontSizeOutput")],
   ["overview", $("overviewFontPresetSelect"), $("overviewFontSizeRange"), $("overviewFontSizeOutput")],
@@ -162,6 +172,8 @@ function typographyFromControls() {
     titleFontSize: titleFontSizeRange.value,
     navigationFontSize: navigationFontSizeRange.value,
     controlFontSize: controlFontSizeRange.value,
+    overviewButtonFontSize: overviewButtonFontSizeRange.value,
+    videoActionButtonSize: videoActionButtonSizeRange.value,
     metaFontSize: metaFontSizeRange.value,
     codeFontSize: codeFontSizeRange.value,
     readingFontSize: readingFontSizeRange.value,
@@ -214,6 +226,8 @@ function setTypographyControls(input) {
     [titleFontSizeRange, titleFontSizeOutput, "titleFontSize"],
     [navigationFontSizeRange, navigationFontSizeOutput, "navigationFontSize"],
     [controlFontSizeRange, controlFontSizeOutput, "controlFontSize"],
+    [overviewButtonFontSizeRange, overviewButtonFontSizeOutput, "overviewButtonFontSize"],
+    [videoActionButtonSizeRange, videoActionButtonSizeOutput, "videoActionButtonSize"],
     [metaFontSizeRange, metaFontSizeOutput, "metaFontSize"],
     [codeFontSizeRange, codeFontSizeOutput, "codeFontSize"],
   ]) {
@@ -338,6 +352,67 @@ async function saveSettings() {
   }
 }
 
+function downloadJson(text, filename) {
+  const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function exportSettings() {
+  settingsTransferStatus.className = "hint";
+  settingsTransferStatus.textContent = "正在导出已保存设置…";
+  try {
+    const [{ settings }, { theme }] = await Promise.all([
+      send("getSettings"),
+      chrome.storage.local.get("theme"),
+    ]);
+    const includeApiKey = includeApiKeyExportCheckbox.checked;
+    const json = createSettingsBackup(settings, {
+      includeApiKey,
+      theme: theme === "dark" ? "dark" : "light",
+    });
+    const date = new Date().toISOString().slice(0, 10);
+    downloadJson(json, `bili-digest-settings-${date}.json`);
+    settingsTransferStatus.className = "hint ok";
+    settingsTransferStatus.textContent = includeApiKey
+      ? "设置已导出，文件包含 API Key，请妥善保管。"
+      : "设置已导出（不包含 API Key）。";
+  } catch (error) {
+    settingsTransferStatus.className = "hint error";
+    settingsTransferStatus.textContent = error.message;
+  }
+}
+
+async function importSettingsFile() {
+  const file = settingsImportFile.files?.[0];
+  if (!file) return;
+  settingsTransferStatus.className = "hint";
+  settingsTransferStatus.textContent = "正在导入设置…";
+  try {
+    if (file.size > 1024 * 1024) throw new Error("设置文件过大，最大支持 1 MB");
+    const imported = parseSettingsBackup(await file.text());
+    await send("setSettings", { settings: imported.settings });
+    if (imported.theme) {
+      await chrome.storage.local.set({ theme: imported.theme });
+      applyTheme(imported.theme);
+    }
+    await loadSettings();
+    settingsTransferStatus.className = "hint ok";
+    settingsTransferStatus.textContent = imported.includesApiKey
+      ? "设置已导入，包含 API Key。"
+      : "设置已导入；当前 API Key 保持不变。";
+  } catch (error) {
+    settingsTransferStatus.className = "hint error";
+    settingsTransferStatus.textContent = error.message;
+  } finally {
+    settingsImportFile.value = "";
+  }
+}
+
 async function testApiKey() {
   keyTestResultEl.className = "hint";
   keyTestResultEl.textContent = "正在测试…";
@@ -436,6 +511,8 @@ for (const input of [
   titleFontSizeRange,
   navigationFontSizeRange,
   controlFontSizeRange,
+  overviewButtonFontSizeRange,
+  videoActionButtonSizeRange,
   metaFontSizeRange,
   codeFontSizeRange,
   ...regionTypographyControls.flatMap(([, select, range]) => [select, range]),
@@ -454,6 +531,9 @@ resetTypographyBtn.addEventListener("click", () => {
   typographyStatus.className = "hint";
 });
 readLocalFontsBtn.addEventListener("click", readLocalFonts);
+exportSettingsBtn.addEventListener("click", exportSettings);
+importSettingsBtn.addEventListener("click", () => settingsImportFile.click());
+settingsImportFile.addEventListener("change", importSettingsFile);
 
 fontSearchInput.addEventListener("input", () => {
   populateFontOptions();

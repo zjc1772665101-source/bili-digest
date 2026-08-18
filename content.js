@@ -17,6 +17,7 @@ const debugLog = (...args) => {
 let buttonHost = null;
 let noteButtonHost = null;
 let showMarkButton = true;
+let videoActionButtonSize = 44;
 let noteSaving = false;
 let noteKeyboardListenerAdded = false;
 let lastUrl = location.href;
@@ -177,31 +178,15 @@ function createDigestButton() {
   button.title = "打开 Bili Digest";
   button.textContent = "精读";
 
-  button.style.cssText = `
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 32px;
-    padding: 0 16px;
-    border: none;
-    border-radius: 16px;
-    background: #00aeec;
-    color: #fff;
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1;
-    cursor: pointer;
-    white-space: nowrap;
-    flex: 0 0 auto;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-    transition: background 0.15s ease, transform 0.1s ease;
-  `;
+  applyVideoActionButtonStyle(button);
 
   button.addEventListener("mouseenter", () => {
-    button.style.background = "#00a1d6";
+    button.style.background = "#fff";
+    button.style.color = "#000";
   });
   button.addEventListener("mouseleave", () => {
-    button.style.background = "#00aeec";
+    button.style.background = "#000";
+    button.style.color = "#fff";
   });
   button.addEventListener("click", async (event) => {
     event.preventDefault();
@@ -218,6 +203,38 @@ function createDigestButton() {
   });
 
   return button;
+}
+
+function normalizeVideoActionButtonSize(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 44;
+  return Math.min(80, Math.max(36, Math.round(numeric / 2) * 2));
+}
+
+function applyVideoActionButtonStyle(button) {
+  if (!button) return;
+  const size = normalizeVideoActionButtonSize(videoActionButtonSize);
+  const fontSize = Math.max(12, Math.round(size * 0.3));
+  button.style.cssText = `
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: ${size}px;
+    height: ${size}px;
+    padding: 0;
+    border: 1px solid #fff;
+    border-radius: 0;
+    background: #000;
+    color: #fff;
+    font-size: ${fontSize}px;
+    font-weight: 650;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    box-shadow: none;
+    transition: background 0.12s ease, color 0.12s ease;
+  `;
 }
 
 function ensureButtonHost() {
@@ -322,28 +339,14 @@ function ensureNoteButtonHost() {
   button.type = "button";
   button.title = "标记当前播放位置（快捷键 N）";
   button.textContent = "标记";
-  button.style.cssText = `
-    display: inline-flex;
-    align-items: center;
-    height: 30px;
-    padding: 0 14px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 15px;
-    background: #fb7299;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1;
-    cursor: pointer;
-    white-space: nowrap;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
-    transition: background 0.15s ease;
-  `;
+  applyVideoActionButtonStyle(button);
   button.addEventListener("mouseenter", () => {
-    button.style.background = "#f25d8a";
+    button.style.background = "#fff";
+    button.style.color = "#000";
   });
   button.addEventListener("mouseleave", () => {
-    button.style.background = "#fb7299";
+    button.style.background = "#000";
+    button.style.color = "#fff";
   });
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -502,12 +505,22 @@ function applyShowMarkButton(value) {
   if (showMarkButton) positionNoteButton();
 }
 
-async function loadShowMarkButtonSetting() {
+function applyVideoActionButtonSize(value) {
+  videoActionButtonSize = normalizeVideoActionButtonSize(value);
+  applyVideoActionButtonStyle(buttonHost?.firstElementChild);
+  applyVideoActionButtonStyle(noteButtonHost?.firstElementChild);
+  scheduleUpdate(0);
+  positionNoteButton();
+}
+
+async function loadContentSettings() {
   try {
     const result = await chrome.storage.local.get("settings");
     applyShowMarkButton(result?.settings?.showMarkButton);
+    applyVideoActionButtonSize(result?.settings?.videoActionButtonSize);
   } catch {
     applyShowMarkButton(true);
+    applyVideoActionButtonSize(44);
   }
 }
 
@@ -556,11 +569,12 @@ function init() {
   chrome.storage?.onChanged?.addListener((changes, areaName) => {
     if (areaName !== "local" || !changes.settings) return;
     applyShowMarkButton(changes.settings.newValue?.showMarkButton);
+    applyVideoActionButtonSize(changes.settings.newValue?.videoActionButtonSize);
   });
   watchNavigation();
   updateButton();
   updateNoteButton();
-  loadShowMarkButtonSetting();
+  loadContentSettings();
 }
 
 if (document.readyState === "loading") {

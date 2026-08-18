@@ -48,6 +48,8 @@
   --type-title-size: 17px;
   --type-nav-size: 13px;
   --type-control-size: 13px;
+  --overview-button-font-size: 13px;
+  --video-action-button-size: 44px;
   --type-meta-size: 12px;
   --type-code-size: 12px;
 
@@ -1667,6 +1669,36 @@ pre,
   font-size: var(--type-control-size);
 }
 
+.typography-preview-overview-button {
+  justify-self: start;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-button-font-size);
+}
+
+.video-button-preview {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.video-button-preview button {
+  width: var(--video-action-button-size);
+  height: var(--video-action-button-size);
+  padding: 0;
+  border: 1px solid #fff;
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+  box-shadow: none;
+  font-size: max(12px, calc(var(--video-action-button-size) * 0.3));
+  font-weight: 650;
+}
+
 .typography-preview code {
   font-family: var(--code-font-family);
   font-size: var(--type-code-size);
@@ -1684,6 +1716,11 @@ pre,
 #tab-overview *:not(code):not(pre):not(svg) {
   font-family: var(--overview-font-family);
   font-size: var(--overview-font-size);
+}
+
+#tab-overview #generateOverviewBtn {
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-button-font-size);
 }
 
 #tab-notes,
@@ -1750,6 +1787,18 @@ pre,
 #tab-settings .typography-preview .typography-preview-region[data-region="overview"] {
   font-family: var(--overview-font-family);
   font-size: var(--overview-font-size);
+}
+
+#tab-settings .typography-preview .typography-preview-overview-button {
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-button-font-size);
+}
+
+#tab-settings .typography-preview .video-button-preview button {
+  width: var(--video-action-button-size);
+  height: var(--video-action-button-size);
+  font-family: var(--interface-font-family);
+  font-size: max(12px, calc(var(--video-action-button-size) * 0.3));
 }
 
 #tab-settings .typography-preview .typography-preview-region[data-region="notes"] {

@@ -336,6 +336,14 @@
                 <input id="controlFontSizeRange" type="range" min="12" max="50" step="1" value="13" aria-describedby="controlFontSizeOutput" />
               </div>
               <div class="typography-control">
+                <label class="field-label" for="overviewButtonFontSizeRange">“生成 AI 概览”字号 <output id="overviewButtonFontSizeOutput" for="overviewButtonFontSizeRange">13 px</output></label>
+                <input id="overviewButtonFontSizeRange" type="range" min="12" max="50" step="1" value="13" aria-describedby="overviewButtonFontSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="videoActionButtonSizeRange">视频页方块按钮尺寸 <output id="videoActionButtonSizeOutput" for="videoActionButtonSizeRange">44 px</output></label>
+                <input id="videoActionButtonSizeRange" type="range" min="36" max="80" step="2" value="44" aria-describedby="videoActionButtonSizeOutput" />
+              </div>
+              <div class="typography-control">
                 <label class="field-label" for="metaFontSizeRange">辅助字号 <output id="metaFontSizeOutput" for="metaFontSizeRange">12 px</output></label>
                 <input id="metaFontSizeRange" type="range" min="12" max="50" step="1" value="12" aria-describedby="metaFontSizeOutput" />
               </div>
@@ -351,7 +359,7 @@
             <p class="typography-preview-nav"><span>字幕</span><span>概览</span><span>笔记</span><span>对话</span><span>设置</span></p>
             <div class="typography-preview-regions" aria-label="功能区独立排版预览">
               <div class="typography-preview-region" data-region="transcript"><strong>字幕</strong><span>原文与双语字幕示例</span></div>
-              <div class="typography-preview-region" data-region="overview"><strong>概览</strong><span>章节与重点内容示例</span></div>
+              <div class="typography-preview-region" data-region="overview"><strong>概览</strong><span>章节与重点内容示例</span><button class="typography-preview-overview-button" type="button" tabindex="-1">生成 AI 概览</button></div>
               <div class="typography-preview-region" data-region="notes"><strong>笔记</strong><span>带时间戳的学习笔记</span></div>
               <div class="typography-preview-region" data-region="chat"><strong>对话</strong><span>视频问答消息示例</span></div>
               <div class="typography-preview-region" data-region="settings"><strong>设置</strong><span>按钮、输入框与选择器示例</span></div>
@@ -359,6 +367,7 @@
             <p class="typography-preview-zh">中文预览：让字幕、概览与笔记更适合长时间阅读。</p>
             <p class="typography-preview-tr">Latin / English preview 123456</p>
             <p class="typography-preview-controls"><button type="button" tabindex="-1">按钮预览</button> <span class="typography-preview-meta">辅助文字 · 00:12</span> <code>const mono = true;</code></p>
+            <p class="video-button-preview" aria-label="视频页按钮预览"><button type="button" tabindex="-1">精读</button><button type="button" tabindex="-1">标记</button></p>
           </div>
             <div class="button-row typography-actions">
               <button id="resetTypographyBtn" class="ghost-btn" type="button">恢复默认</button>
@@ -382,6 +391,21 @@
             placeholder="输入目标语言，如 Français"
             spellcheck="false"
           />
+        </div>
+
+        <div class="settings-group">
+          <h2 class="group-title">设置备份</h2>
+          <p class="hint dim">导出和导入 AI、翻译、排版、按钮及主题设置；不会包含字幕、笔记、对话或缓存。</p>
+          <label class="setting-switch" for="includeApiKeyExportCheckbox">
+            <input id="includeApiKeyExportCheckbox" type="checkbox" />
+            <span>导出时包含 API Key（敏感信息）</span>
+          </label>
+          <div class="button-row">
+            <button id="exportSettingsBtn" class="ghost-btn" type="button">导出设置</button>
+            <button id="importSettingsBtn" class="ghost-btn" type="button">导入设置</button>
+            <input id="settingsImportFile" class="hidden" type="file" accept="application/json,.json" />
+          </div>
+          <p id="settingsTransferStatus" class="hint" role="status" aria-live="polite"></p>
         </div>
 
         <div class="settings-group">

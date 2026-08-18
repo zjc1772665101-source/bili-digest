@@ -31,6 +31,8 @@ test("默认 schema 覆盖全局与五个功能区字体/字号", () => {
     "titleFontSize",
     "navigationFontSize",
     "controlFontSize",
+    "overviewButtonFontSize",
+    "videoActionButtonSize",
     "metaFontSize",
     "codeFontSize",
     "readingFontSize",
@@ -195,6 +197,8 @@ test("CSS vars 完整且只来自清洗值", () => {
     "--type-title-size",
     "--type-nav-size",
     "--type-control-size",
+    "--overview-button-font-size",
+    "--video-action-button-size",
     "--type-meta-size",
     "--type-code-size",
     "--reading-font-family",
@@ -523,6 +527,11 @@ test("选项页与侧边栏共享五个功能区控件，CSS 具备对应变量�
     assert.match(html, /id="fontSearchInput"/);
     assert.match(html, /id="fontSearchStatus"[^>]*role="status"/);
     assert.match(html, /id="showMarkButtonCheckbox"/);
+    assert.match(html, /id="overviewButtonFontSizeRange"[^>]*min="12"[^>]*max="50"/);
+    assert.match(html, /id="videoActionButtonSizeRange"[^>]*min="36"[^>]*max="80"/);
+    assert.match(html, /id="exportSettingsBtn"/);
+    assert.match(html, /id="importSettingsBtn"/);
+    assert.match(html, /id="settingsImportFile"/);
     for (const region of ["transcript", "overview", "notes", "chat", "settings"]) {
       assert.match(html, new RegExp(`id="${region}FontPresetSelect"`));
       assert.match(html, new RegExp(`id="${region}FontSizeRange"[^>]*min="12"[^>]*max="50"`));
@@ -550,6 +559,9 @@ test("选项页与侧边栏共享五个功能区控件，CSS 具备对应变量�
   }
   assert.doesNotMatch(sidepanelCss, /\.tab\[data-tab=/);
   assert.match(sidepanelCss, /\.tabs \.tab[\s\S]*--type-nav-size/);
+  assert.match(sidepanelCss, /#tab-overview #generateOverviewBtn[\s\S]*--overview-button-font-size/);
+  assert.match(contentJs, /border-radius: 0/);
+  assert.match(contentJs, /videoActionButtonSize/);
   assert.match(sidepanelCss, /#tab-settings \.typography-preview \.typography-preview-region\[data-region="transcript"\]/);
   assert.match(contentJs, /storage\?\.onChanged/);
   assert.match(contentJs, /removeNoteButtonHost/);

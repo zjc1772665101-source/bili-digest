@@ -30,6 +30,7 @@ const REQUIRED_FILES = [
   "lib/note-context.js",
   "lib/markdown.js",
   "lib/typography.js",
+  "lib/settings-transfer.js",
   "fonts/stack-sans/stack-sans.css",
   "fonts/misans/MiSans-Regular.min.css",
   "fonts/misans/MiSans-Medium.min.css",
@@ -59,6 +60,7 @@ const JS_FILES = [
   "lib/note-context.js",
   "lib/markdown.js",
   "lib/typography.js",
+  "lib/settings-transfer.js",
 ];
 
 function fail(message) {
