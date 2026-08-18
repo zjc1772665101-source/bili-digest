@@ -1,16 +1,14 @@
 name: Cleanup v0.4.2 temporary branches
 
 on:
-  pull_request:
+  push:
     branches: [main]
-    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
 
 jobs:
   cleanup:
-    if: github.head_ref == 'release-v0.4.2-finalize'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main for authenticated git remote
