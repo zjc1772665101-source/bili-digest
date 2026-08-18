@@ -293,6 +293,49 @@ test("本机字体权限仅在显式 requestLocalFontList 时调用且兼容回�
   assert.equal(result.fonts[0].fontId, "Arial");
 });
 
+test("Local Font Access 成功时优先同步调用并映射 family/fullName", async () => {
+  const calls = [];
+  const result = await requestLocalFontList({}, {
+    queryLocalFonts() {
+      calls.push("query");
+      return Promise.resolve([
+        { family: "Arial", fullName: "Arial Regular" },
+        { family: "思源黑体", fullName: "思源黑体 Bold" },
+      ]);
+    },
+  });
+  assert.deepEqual(calls, ["query"]);
+  assert.equal(result.granted, true);
+  assert.deepEqual(result.fonts[0], { fontId: "Arial", displayName: "Arial Regular" });
+  assert.deepEqual(result.fonts[1], { fontId: "思源黑体", displayName: "思源黑体 Bold" });
+});
+
+test("Local Font Access 拒绝时显示真实 DOMException，并且不申请 fontSettings", async () => {
+  let requestCalls = 0;
+  const result = await requestLocalFontList({
+    permissions: { request() { requestCalls += 1; return Promise.resolve(true); } },
+  }, {
+    queryLocalFonts() {
+      return Promise.reject(new DOMException("用户拒绝了字体访问", "NotAllowedError"));
+    },
+  });
+  assert.equal(requestCalls, 0);
+  assert.equal(result.granted, false);
+  assert.match(result.error, /读取本机字体失败：NotAllowedError: 用户拒绝了字体访问/);
+});
+
+test("fontSettings callback 的 chrome.runtime.lastError 使用传入 chromeApi", async () => {
+  const chromeApi = {
+    runtime: { lastError: { message: "权限 API 不可用" } },
+    permissions: {
+      request(_value, callback) { callback(false); },
+    },
+  };
+  const result = await requestLocalFontList(chromeApi);
+  assert.equal(result.granted, false);
+  assert.match(result.error, /权限 API 不可用/);
+});
+
 test("字体权限先无 API，授权后重新读取并发现 fontSettings", async () => {
   const chromeApi = {
     permissions: {
@@ -462,7 +505,7 @@ test("showBrandText 缺失默认开启并独立归一化", () => {
 });
 
 test("选项页与侧边栏共享五个功能区控件，CSS 具备对应变量和作用域", async () => {
-  const [optionsHtml, sidepanelHtml, sidepanelCss, optionsJs, sidepanelJs, backgroundJs, contentJs] = await Promise.all([
+  const [optionsHtml, sidepanelHtml, sidepanelCss, optionsJs, sidepanelJs, backgroundJs, contentJs, manifestJson, privacyMd, plusManifestJson] = await Promise.all([
     readFile(new URL("../options.html", import.meta.url), "utf8"),
     readFile(new URL("../sidepanel.html", import.meta.url), "utf8"),
     readFile(new URL("../sidepanel.css", import.meta.url), "utf8"),
@@ -470,6 +513,9 @@ test("选项页与侧边栏共享五个功能区控件，CSS 具备对应变量�
     readFile(new URL("../sidepanel.js", import.meta.url), "utf8"),
     readFile(new URL("../background.js", import.meta.url), "utf8"),
     readFile(new URL("../content.js", import.meta.url), "utf8"),
+    readFile(new URL("../manifest.json", import.meta.url), "utf8"),
+    readFile(new URL("../PRIVACY.md", import.meta.url), "utf8"),
+    readFile(new URL("../../bili-digest-plus/manifest.json", import.meta.url), "utf8"),
   ]);
   for (const html of [optionsHtml, sidepanelHtml]) {
     assert.match(html, /id="fontSearchInput"/);
@@ -505,4 +551,8 @@ test("选项页与侧边栏共享五个功能区控件，CSS 具备对应变量�
   assert.match(sidepanelCss, /#tab-settings \.typography-preview \.typography-preview-region\[data-region="transcript"\]/);
   assert.match(contentJs, /storage\?\.onChanged/);
   assert.match(contentJs, /removeNoteButtonHost/);
+  assert.doesNotMatch(manifestJson, /optional_permissions[\s\S]*fontSettings/);
+  assert.match(privacyMd, /queryLocalFonts\(\)/);
+  assert.doesNotMatch(privacyMd, /fontSettings/);
+  assert.match(JSON.parse(plusManifestJson).name, /Bili Digest Plus/);
 });

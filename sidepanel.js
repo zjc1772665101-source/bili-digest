@@ -1771,7 +1771,7 @@ function setTypographyControls(input) {
 async function readLocalFonts() {
   readLocalFontsBtn.disabled = true;
   localFontsStatus.className = "hint";
-  localFontsStatus.textContent = "正在申请权限并读取本机字体…";
+  localFontsStatus.textContent = "正在请求 Chrome 的本机字体访问权限并读取字体…";
   try {
     const result = await requestLocalFontList();
     if (result.granted) {
