@@ -38,7 +38,7 @@
   --type-title-size: 17px;
   --type-nav-size: 13px;
   --type-control-size: 13px;
-  --type-meta-size: 11px;
+  --type-meta-size: 12px;
   --type-code-size: 12px;
 
   --radius-sm: 10px;
@@ -550,6 +550,47 @@ label,
 }
 
 .typography-preview-region[data-region="settings"] {
+  font-family: var(--settings-font-family);
+  font-size: var(--settings-font-size);
+}
+
+/* 预览项使用高特异性选择器，避免未来的通用预览规则覆盖五区设置。 */
+.typography-preview .typography-preview-brand {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-brand-size);
+}
+
+.typography-preview .typography-preview-title {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-title-size);
+}
+
+.typography-preview .typography-preview-nav {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-nav-size);
+}
+
+.typography-preview .typography-preview-region[data-region="transcript"] {
+  font-family: var(--transcript-font-family);
+  font-size: var(--transcript-font-size);
+}
+
+.typography-preview .typography-preview-region[data-region="overview"] {
+  font-family: var(--overview-font-family);
+  font-size: var(--overview-font-size);
+}
+
+.typography-preview .typography-preview-region[data-region="notes"] {
+  font-family: var(--notes-font-family);
+  font-size: var(--notes-font-size);
+}
+
+.typography-preview .typography-preview-region[data-region="chat"] {
+  font-family: var(--chat-font-family);
+  font-size: var(--chat-font-size);
+}
+
+.typography-preview .typography-preview-region[data-region="settings"] {
   font-family: var(--settings-font-family);
   font-size: var(--settings-font-size);
 }

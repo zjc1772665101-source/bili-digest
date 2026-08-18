@@ -32,6 +32,7 @@ import {
   TYPOGRAPHY_DEFAULTS,
   normalizeTypographySettings,
   normalizeShowMarkButton,
+  normalizeShowBrandText,
 } from "./lib/typography.js";
 
 const DEBUG = false;
@@ -61,6 +62,7 @@ const DEFAULT_SETTINGS = {
   customLanguage: "",
   thinkingLevel: "off",
   showMarkButton: true,
+  showBrandText: true,
   ...TYPOGRAPHY_DEFAULTS,
 };
 
@@ -81,6 +83,7 @@ function mergeSettings(base, incoming = {}) {
     ? String(merged.thinkingLevel)
     : "off";
   merged.showMarkButton = normalizeShowMarkButton(merged.showMarkButton, true);
+  merged.showBrandText = normalizeShowBrandText(merged.showBrandText, true);
   // DEFAULT_SETTINGS 里有新字段的默认值，但旧存储没有这些键时必须让
   // normalizeTypographySettings 看见“缺失”，才能继承旧 reading 设置。
   const typographyInput = { ...merged };

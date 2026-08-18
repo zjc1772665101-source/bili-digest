@@ -73,7 +73,8 @@
               placeholder="搜索字体名称（支持中英文，忽略空格和连字符）"
               aria-describedby="fontSearchStatus"
             />
-            <span id="fontSearchStatus" class="hint" role="status" aria-live="polite">显示 17 / 共 17 个字体</span>
+            <span id="fontSearchStatus" class="hint" role="status" aria-live="polite">正在加载字体预设…</span>
+            <p class="hint dim">内置字体预设固定且安全；如果本机未安装某个字体，浏览器会自动回退到同类字体。读取本机字体仅在点击后申请权限。</p>
           </div>
           <div class="typography-control">
             <label class="field-label" for="readingFontPresetSelect">字体</label>
@@ -99,7 +100,7 @@
             <p id="readingFontPresetHint" class="hint dim">五个功能区的共同回退字体；可在下方单独覆盖。</p>
           </div>
           <div class="typography-control">
-            <label class="field-label" for="interfaceFontPresetSelect">界面字体</label>
+            <label class="field-label" for="interfaceFontPresetSelect">界面字体（含顶部标签栏）</label>
             <select id="interfaceFontPresetSelect" aria-describedby="interfaceFontPresetHint">
               <option value="default">默认（Stack Sans Text → MiSans）</option>
               <option value="misans">MiSans</option>
@@ -149,41 +150,41 @@
             <span id="localFontsStatus" class="hint" role="status" aria-live="polite">仅在点击后申请可选权限，字体列表只在本机使用。</span>
           </div>
           <details class="typography-regions" open>
-            <summary><span>功能区独立排版</span><span class="hint dim">每个区域单独选择字体和 12–30px 字号</span></summary>
+            <summary><span>功能区独立排版</span><span class="hint dim">每个区域单独选择字体和 12–50px 字号</span></summary>
             <div class="typography-region-grid">
               <div class="typography-region-row">
                 <label class="field-label" for="transcriptFontPresetSelect">字幕</label>
                 <select id="transcriptFontPresetSelect" aria-label="字幕字体"></select>
                 <label class="sr-only" for="transcriptFontSizeRange">字幕字号</label>
-                <input id="transcriptFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-label="字幕字号" />
+                <input id="transcriptFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="字幕字号" />
                 <output id="transcriptFontSizeOutput" for="transcriptFontSizeRange">14 px</output>
               </div>
               <div class="typography-region-row">
                 <label class="field-label" for="overviewFontPresetSelect">概览</label>
                 <select id="overviewFontPresetSelect" aria-label="概览字体"></select>
                 <label class="sr-only" for="overviewFontSizeRange">概览字号</label>
-                <input id="overviewFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-label="概览字号" />
+                <input id="overviewFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="概览字号" />
                 <output id="overviewFontSizeOutput" for="overviewFontSizeRange">14 px</output>
               </div>
               <div class="typography-region-row">
                 <label class="field-label" for="notesFontPresetSelect">笔记</label>
                 <select id="notesFontPresetSelect" aria-label="笔记字体"></select>
                 <label class="sr-only" for="notesFontSizeRange">笔记字号</label>
-                <input id="notesFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-label="笔记字号" />
+                <input id="notesFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="笔记字号" />
                 <output id="notesFontSizeOutput" for="notesFontSizeRange">14 px</output>
               </div>
               <div class="typography-region-row">
                 <label class="field-label" for="chatFontPresetSelect">对话</label>
                 <select id="chatFontPresetSelect" aria-label="对话字体"></select>
                 <label class="sr-only" for="chatFontSizeRange">对话字号</label>
-                <input id="chatFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-label="对话字号" />
+                <input id="chatFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="对话字号" />
                 <output id="chatFontSizeOutput" for="chatFontSizeRange">14 px</output>
               </div>
               <div class="typography-region-row">
                 <label class="field-label" for="settingsFontPresetSelect">设置</label>
                 <select id="settingsFontPresetSelect" aria-label="设置字体"></select>
                 <label class="sr-only" for="settingsFontSizeRange">设置字号</label>
-                <input id="settingsFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-label="设置字号" />
+                <input id="settingsFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="设置字号" />
                 <output id="settingsFontSizeOutput" for="settingsFontSizeRange">14 px</output>
               </div>
             </div>
@@ -192,9 +193,13 @@
             <input id="showMarkButtonCheckbox" type="checkbox" checked />
             <span>显示视频页“标记”按钮</span>
           </label>
+          <label class="setting-switch" for="showBrandTextCheckbox">
+            <input id="showBrandTextCheckbox" type="checkbox" checked />
+            <span>显示顶部品牌文字</span>
+          </label>
           <div class="typography-control">
             <label class="field-label" for="readingFontSizeRange">字号 <output id="readingFontSizeOutput" for="readingFontSizeRange">14 px</output></label>
-            <input id="readingFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-describedby="readingFontSizeOutput" />
+            <input id="readingFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-describedby="readingFontSizeOutput" />
           </div>
           <div class="typography-control">
             <label class="field-label" for="readingLineHeightRange">行间距 <output id="readingLineHeightOutput" for="readingLineHeightRange">1.7</output></label>
@@ -209,34 +214,34 @@
             <div class="typography-advanced-grid">
               <div class="typography-control">
                 <label class="field-label" for="brandFontSizeRange">品牌字号 <output id="brandFontSizeOutput" for="brandFontSizeRange">12 px</output></label>
-                <input id="brandFontSizeRange" type="range" min="10" max="30" step="1" value="12" aria-describedby="brandFontSizeOutput" />
+                <input id="brandFontSizeRange" type="range" min="12" max="50" step="1" value="12" aria-describedby="brandFontSizeOutput" />
               </div>
               <div class="typography-control">
                 <label class="field-label" for="titleFontSizeRange">标题字号 <output id="titleFontSizeOutput" for="titleFontSizeRange">17 px</output></label>
-                <input id="titleFontSizeRange" type="range" min="12" max="30" step="1" value="17" aria-describedby="titleFontSizeOutput" />
+                <input id="titleFontSizeRange" type="range" min="12" max="50" step="1" value="17" aria-describedby="titleFontSizeOutput" />
               </div>
               <div class="typography-control">
-                <label class="field-label" for="navigationFontSizeRange">导航字号 <output id="navigationFontSizeOutput" for="navigationFontSizeRange">13 px</output></label>
-                <input id="navigationFontSizeRange" type="range" min="10" max="30" step="1" value="13" aria-describedby="navigationFontSizeOutput" />
+                <label class="field-label" for="navigationFontSizeRange">顶部标签栏字号（五项一致） <output id="navigationFontSizeOutput" for="navigationFontSizeRange">13 px</output></label>
+                <input id="navigationFontSizeRange" type="range" min="12" max="50" step="1" value="13" aria-describedby="navigationFontSizeOutput" />
               </div>
               <div class="typography-control">
                 <label class="field-label" for="controlFontSizeRange">控件字号 <output id="controlFontSizeOutput" for="controlFontSizeRange">13 px</output></label>
-                <input id="controlFontSizeRange" type="range" min="10" max="30" step="1" value="13" aria-describedby="controlFontSizeOutput" />
+                <input id="controlFontSizeRange" type="range" min="12" max="50" step="1" value="13" aria-describedby="controlFontSizeOutput" />
               </div>
               <div class="typography-control">
-                <label class="field-label" for="metaFontSizeRange">辅助字号 <output id="metaFontSizeOutput" for="metaFontSizeRange">11 px</output></label>
-                <input id="metaFontSizeRange" type="range" min="8" max="30" step="1" value="11" aria-describedby="metaFontSizeOutput" />
+                <label class="field-label" for="metaFontSizeRange">辅助字号 <output id="metaFontSizeOutput" for="metaFontSizeRange">12 px</output></label>
+                <input id="metaFontSizeRange" type="range" min="12" max="50" step="1" value="12" aria-describedby="metaFontSizeOutput" />
               </div>
               <div class="typography-control">
                 <label class="field-label" for="codeFontSizeRange">代码字号 <output id="codeFontSizeOutput" for="codeFontSizeRange">12 px</output></label>
-                <input id="codeFontSizeRange" type="range" min="8" max="30" step="1" value="12" aria-describedby="codeFontSizeOutput" />
+                <input id="codeFontSizeRange" type="range" min="12" max="50" step="1" value="12" aria-describedby="codeFontSizeOutput" />
               </div>
             </div>
           </details>
           <div class="typography-preview" aria-label="阅读排版预览">
             <p class="typography-preview-brand">BILI DIGEST · 品牌预览</p>
             <p class="typography-preview-title">视频标题预览：让每个区域都清晰可读</p>
-            <p class="typography-preview-nav"><span>字幕</span><span>概览</span><span>笔记</span><span>设置</span></p>
+            <p class="typography-preview-nav"><span>字幕</span><span>概览</span><span>笔记</span><span>对话</span><span>设置</span></p>
             <div class="typography-preview-regions" aria-label="功能区独立排版预览">
               <div class="typography-preview-region" data-region="transcript"><strong>字幕</strong><span>原文与双语字幕示例</span></div>
               <div class="typography-preview-region" data-region="overview"><strong>概览</strong><span>章节与重点内容示例</span></div>

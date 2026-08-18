@@ -48,7 +48,7 @@
   --type-title-size: 17px;
   --type-nav-size: 13px;
   --type-control-size: 13px;
-  --type-meta-size: 11px;
+  --type-meta-size: 12px;
   --type-code-size: 12px;
 
   --radius-sm: 10px;
@@ -1550,6 +1550,12 @@ textarea {
   font-size: var(--type-nav-size);
 }
 
+/* 顶部五项标签栏统一使用界面字体与同一个导航字号。 */
+.tabs .tab {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-nav-size);
+}
+
 .field-label,
 label,
 .primary-btn,
@@ -1668,20 +1674,10 @@ pre,
 
 /* ============ 功能区独立排版（必须位于所有通用规则之后） ============ */
 
-.tab[data-tab="transcript"] {
-  font-family: var(--transcript-font-family);
-  font-size: var(--transcript-font-size);
-}
-
 #tab-transcript,
 #tab-transcript *:not(code):not(pre):not(svg) {
   font-family: var(--transcript-font-family);
   font-size: var(--transcript-font-size);
-}
-
-.tab[data-tab="overview"] {
-  font-family: var(--overview-font-family);
-  font-size: var(--overview-font-size);
 }
 
 #tab-overview,
@@ -1690,31 +1686,16 @@ pre,
   font-size: var(--overview-font-size);
 }
 
-.tab[data-tab="notes"] {
-  font-family: var(--notes-font-family);
-  font-size: var(--notes-font-size);
-}
-
 #tab-notes,
 #tab-notes *:not(code):not(pre):not(svg) {
   font-family: var(--notes-font-family);
   font-size: var(--notes-font-size);
 }
 
-.tab[data-tab="chat"] {
-  font-family: var(--chat-font-family);
-  font-size: var(--chat-font-size);
-}
-
 #tab-chat,
 #tab-chat *:not(code):not(pre):not(svg) {
   font-family: var(--chat-font-family);
   font-size: var(--chat-font-size);
-}
-
-.tab[data-tab="settings"] {
-  font-family: var(--settings-font-family);
-  font-size: var(--settings-font-size);
 }
 
 #tab-settings,
@@ -1761,27 +1742,48 @@ pre,
   font-size: var(--type-code-size);
 }
 
-#tab-settings .typography-preview-region[data-region="transcript"] {
+#tab-settings .typography-preview .typography-preview-region[data-region="transcript"] {
   font-family: var(--transcript-font-family);
   font-size: var(--transcript-font-size);
 }
 
-#tab-settings .typography-preview-region[data-region="overview"] {
+#tab-settings .typography-preview .typography-preview-region[data-region="overview"] {
   font-family: var(--overview-font-family);
   font-size: var(--overview-font-size);
 }
 
-#tab-settings .typography-preview-region[data-region="notes"] {
+#tab-settings .typography-preview .typography-preview-region[data-region="notes"] {
   font-family: var(--notes-font-family);
   font-size: var(--notes-font-size);
 }
 
-#tab-settings .typography-preview-region[data-region="chat"] {
+#tab-settings .typography-preview .typography-preview-region[data-region="chat"] {
   font-family: var(--chat-font-family);
   font-size: var(--chat-font-size);
 }
 
-#tab-settings .typography-preview-region[data-region="settings"] {
+#tab-settings .typography-preview .typography-preview-region[data-region="settings"] {
   font-family: var(--settings-font-family);
   font-size: var(--settings-font-size);
+}
+
+/* 设置面板的区域继承规则特异性很高，预览再用明确的作用域覆盖它。 */
+#tab-settings .typography-preview .typography-preview-brand {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-brand-size);
+}
+
+#tab-settings .typography-preview .typography-preview-title {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-title-size);
+}
+
+#tab-settings .typography-preview .typography-preview-nav {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-nav-size);
+}
+
+#tab-settings .typography-preview .typography-preview-controls {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-control-size);
 }

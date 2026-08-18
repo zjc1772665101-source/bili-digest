@@ -10,6 +10,7 @@ import {
   getFontOptions,
   normalizeFontChoice,
   normalizeTypographySettings,
+  normalizeShowBrandText,
   requestLocalFontList,
   sanitizeLocalFontName,
   typographyFontFamily,
@@ -80,6 +81,7 @@ test("旧 reading 字体和字号会作为缺失功能区设置的回退", () =>
 });
 
 test("所有固定字体预设都有安全栈，未知值回退", () => {
+  assert.ok(TYPOGRAPHY_PRESETS.length >= 35);
   for (const preset of TYPOGRAPHY_PRESETS) {
     const stack = typographyFontFamily(preset);
     assert.equal(typeof stack, "string");
@@ -88,6 +90,34 @@ test("所有固定字体预设都有安全栈，未知值回退", () => {
   }
   assert.ok(TYPOGRAPHY_PRESETS.includes("microsoftYaHei"));
   assert.ok(TYPOGRAPHY_PRESETS.includes("jetbrains"));
+  for (const preset of [
+    "microsoftYaHeiUi",
+    "microsoftJhengHei",
+    "nsimsun",
+    "pingfang",
+    "notoSansSc",
+    "notoSerifSc",
+    "sourceHanSansSc",
+    "sourceHanSerifSc",
+    "lxgwWenKai",
+    "harmonyOsSansSc",
+    "sarasaGothicSc",
+    "segoeVariable",
+    "aptos",
+    "inter",
+    "roboto",
+    "cascadiaMono",
+    "firaCode",
+    "sourceCodePro",
+    "iosevka",
+    "mapleMono",
+    "ibmPlexMono",
+    "ubuntuMono",
+    "lucidaConsole",
+    "courierNew",
+  ]) {
+    assert.ok(TYPOGRAPHY_PRESETS.includes(preset), preset);
+  }
   assert.equal(typographyFontFamily("unknown"), typographyFontFamily("default"));
 });
 
@@ -136,6 +166,9 @@ test("字体搜索按 NFKC、大小写、空白和连字符容错，且不改写
   assert.ok(filterFontOptions(options, "cascadia-code").some((item) => item.value === "local:Cascadia Code"));
   assert.ok(filterFontOptions(options, "思源 黑体").some((item) => item.value === "local:Source Sans"));
   assert.ok(filterFontOptions(options, "ＳＥＲＩＦ").some((item) => item.value === "serif"));
+  const builtInOptions = getFontOptions();
+  assert.ok(filterFontOptions(builtInOptions, "Noto Sans SC").some((item) => item.value === "notoSansSc"));
+  assert.ok(filterFontOptions(builtInOptions, "cascadia-mono").some((item) => item.value === "cascadiaMono"));
   assert.equal(filterFontOptions(options, "no-such-font").length, 0);
   assert.equal(options[0], original);
 });
@@ -183,7 +216,7 @@ test("CSS vars 完整且只来自清洗值", () => {
   }
   assert.equal(vars["--interface-font-family"], typographyFontFamily("default"));
   assert.equal(vars["--code-font-family"], typographyFontFamily("mono"));
-  assert.equal(vars["--type-title-size"], "30px");
+  assert.equal(vars["--type-title-size"], "50px");
   assert.equal(vars["--reading-font-size"], "14px");
   assert.equal(vars["--transcript-font-size"], "14px");
   assert.equal(vars["--reading-line-height"], "1.7");
@@ -281,7 +314,7 @@ test("字体权限先无 API，授权后重新读取并发现 fontSettings", asy
   assert.equal(result.fonts[0].fontId, "Arial");
 });
 
-test("字体权限 contains/request 的回调 API 也能工作", async () => {
+test("字体权限 request 的回调 API 也能工作且先于 contains", async () => {
   const calls = [];
   const result = await requestLocalFontList({
     permissions: {
@@ -300,12 +333,12 @@ test("字体权限 contains/request 的回调 API 也能工作", async () => {
       },
     },
   });
-  assert.deepEqual(calls.map(([name]) => name), ["contains", "request"]);
+  assert.deepEqual(calls.map(([name]) => name), ["request"]);
   assert.equal(result.granted, true);
   assert.equal(result.fonts.length, 1);
 });
 
-test("已授予字体权限时优先 contains，不重复 request", async () => {
+test("已授予字体权限时 request 仍可幂等调用", async () => {
   let requestCalls = 0;
   const result = await requestLocalFontList({
     permissions: {
@@ -314,14 +347,14 @@ test("已授予字体权限时优先 contains，不重复 request", async () => 
       },
       async request() {
         requestCalls += 1;
-        return false;
+        return true;
       },
     },
     fontSettings: {
       getFontList: async () => [{ fontId: "MiSans", displayName: "MiSans" }],
     },
   });
-  assert.equal(requestCalls, 0);
+  assert.equal(requestCalls, 1);
   assert.equal(result.granted, true);
   assert.equal(result.fonts[0].fontId, "MiSans");
 });
@@ -353,6 +386,51 @@ test("字体权限拒绝和 request 异常分别返回可识别结果", async ()
   assert.match(rejected.error, /申请失败/);
 });
 
+test("request 异常后允许 contains 恢复已授予状态", async () => {
+  const order = [];
+  const result = await requestLocalFontList({
+    permissions: {
+      async request() {
+        order.push("request");
+        throw new Error("temporary runtime failure");
+      },
+      async contains() {
+        order.push("contains");
+        return true;
+      },
+    },
+    fontSettings: {
+      getFontList: async () => [{ fontId: "MiSans", displayName: "MiSans" }],
+    },
+  });
+  assert.deepEqual(order, ["request", "contains"]);
+  assert.equal(result.granted, true);
+  assert.equal(result.fonts[0].fontId, "MiSans");
+});
+
+test("fontSettings request 在用户激活仍有效时同步调用", async () => {
+  let activation = true;
+  const order = [];
+  const result = await requestLocalFontList({
+    permissions: {
+      request(value) {
+        order.push(activation ? "request-active" : "request-late");
+        activation = false;
+        return Promise.resolve(true);
+      },
+      contains() {
+        order.push("contains");
+        return Promise.resolve(true);
+      },
+    },
+    fontSettings: {
+      getFontList: async () => [{ fontId: "Arial", displayName: "Arial" }],
+    },
+  });
+  assert.deepEqual(order, ["request-active"]);
+  assert.equal(result.granted, true);
+});
+
 test("授权后 fontSettings 仍缺失时提示重新加载，而不是 unsupported", async () => {
   const result = await requestLocalFontList({
     permissions: {
@@ -375,6 +453,14 @@ test("showMarkButton 缺失默认开启并严格归一化布尔值", () => {
   assert.equal(normalizeShowMarkButton(false), false);
 });
 
+test("showBrandText 缺失默认开启并独立归一化", () => {
+  assert.equal(normalizeShowBrandText(undefined), true);
+  assert.equal(normalizeShowBrandText("false"), false);
+  assert.equal(normalizeShowBrandText("0"), false);
+  assert.equal(normalizeShowBrandText("true"), true);
+  assert.equal(normalizeShowBrandText(false), false);
+});
+
 test("选项页与侧边栏共享五个功能区控件，CSS 具备对应变量和作用域", async () => {
   const [optionsHtml, sidepanelHtml, sidepanelCss, optionsJs, sidepanelJs, backgroundJs, contentJs] = await Promise.all([
     readFile(new URL("../options.html", import.meta.url), "utf8"),
@@ -391,7 +477,7 @@ test("选项页与侧边栏共享五个功能区控件，CSS 具备对应变量�
     assert.match(html, /id="showMarkButtonCheckbox"/);
     for (const region of ["transcript", "overview", "notes", "chat", "settings"]) {
       assert.match(html, new RegExp(`id="${region}FontPresetSelect"`));
-      assert.match(html, new RegExp(`id="${region}FontSizeRange"[^>]*min="12"[^>]*max="30"`));
+      assert.match(html, new RegExp(`id="${region}FontSizeRange"[^>]*min="12"[^>]*max="50"`));
       assert.match(html, new RegExp(`id="${region}FontSizeOutput"`));
     }
   }
@@ -399,14 +485,24 @@ test("选项页与侧边栏共享五个功能区控件，CSS 具备对应变量�
     assert.match(sidepanelCss, new RegExp(`--${region}-font-family`));
     assert.match(sidepanelCss, new RegExp(`--${region}-font-size`));
     assert.match(sidepanelCss, new RegExp(`#tab-${region}`));
-    assert.match(sidepanelCss, new RegExp(`data-tab=\\"${region}\\"`));
   }
   assert.match(optionsJs, /filterFontOptions/);
   assert.match(sidepanelJs, /filterFontOptions/);
   assert.match(optionsJs, /showMarkButtonCheckbox\.checked/);
   assert.match(sidepanelJs, /showMarkButtonCheckbox\.checked/);
+  assert.match(optionsJs, /showBrandTextCheckbox/);
+  assert.match(sidepanelJs, /showBrandTextCheckbox/);
   assert.match(backgroundJs, /showMarkButton: true/);
+  assert.match(backgroundJs, /showBrandText: true/);
   assert.match(backgroundJs, /normalizeShowMarkButton/);
+  assert.match(backgroundJs, /normalizeShowBrandText/);
+  for (const html of [optionsHtml, sidepanelHtml]) {
+    assert.match(html, /id="showBrandTextCheckbox"/);
+    assert.match(html, /字幕<\/span><span>概览<\/span><span>笔记<\/span><span>对话<\/span><span>设置<\/span>/);
+  }
+  assert.doesNotMatch(sidepanelCss, /\.tab\[data-tab=/);
+  assert.match(sidepanelCss, /\.tabs \.tab[\s\S]*--type-nav-size/);
+  assert.match(sidepanelCss, /#tab-settings \.typography-preview \.typography-preview-region\[data-region="transcript"\]/);
   assert.match(contentJs, /storage\?\.onChanged/);
   assert.match(contentJs, /removeNoteButtonHost/);
 });

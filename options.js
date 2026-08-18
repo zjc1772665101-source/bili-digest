@@ -8,6 +8,7 @@ import {
   applyTypographySettings,
   filterFontOptions,
   getFontOptions,
+  normalizeShowBrandText,
   normalizeTypographySettings,
   requestLocalFontList,
 } from "./lib/typography.js";
@@ -57,6 +58,7 @@ const codeFontSizeOutput = $("codeFontSizeOutput");
 const fontSearchInput = $("fontSearchInput");
 const fontSearchStatus = $("fontSearchStatus");
 const showMarkButtonCheckbox = $("showMarkButtonCheckbox");
+const showBrandTextCheckbox = $("showBrandTextCheckbox");
 const regionTypographyControls = [
   ["transcript", $("transcriptFontPresetSelect"), $("transcriptFontSizeRange"), $("transcriptFontSizeOutput")],
   ["overview", $("overviewFontPresetSelect"), $("overviewFontSizeRange"), $("overviewFontSizeOutput")],
@@ -178,6 +180,18 @@ function formatLetterSpacing(value) {
   return `${Number(value).toFixed(2).replace(/0+$/, "").replace(/\.$/, "")} em`;
 }
 
+function applyBrandTextVisibility(value) {
+  const visible = normalizeShowBrandText(value, true);
+  document.querySelectorAll(".brand-name, .brand-sub").forEach((element) => {
+    element.classList.toggle("hidden", !visible);
+  });
+  document.querySelectorAll(".typography-preview-brand").forEach((element) => {
+    element.classList.toggle("hidden", !visible);
+  });
+  if (showBrandTextCheckbox) showBrandTextCheckbox.checked = visible;
+  return visible;
+}
+
 function setTypographyControls(input) {
   const settings = normalizeTypographySettings(input);
   populateFontOptions();
@@ -218,6 +232,7 @@ function setTypographyControls(input) {
   readingLetterSpacingOutput.value = String(settings.readingLetterSpacing);
   readingLetterSpacingOutput.textContent = formatLetterSpacing(settings.readingLetterSpacing);
   applyTypographySettings(document.documentElement, settings);
+  applyBrandTextVisibility(showBrandTextCheckbox?.checked);
   return settings;
 }
 
@@ -291,6 +306,7 @@ async function loadSettings() {
     targetLanguageSelect.value = settings.targetLanguage || "English";
     customLanguageInput.value = settings.customLanguage || "";
     showMarkButtonCheckbox.checked = settings.showMarkButton !== false;
+    showBrandTextCheckbox.checked = normalizeShowBrandText(settings.showBrandText, true);
     updateCustomVisibility();
     setTypographyControls(settings);
   } catch (error) {
@@ -318,6 +334,7 @@ async function saveSettings() {
         targetLanguage: targetLanguageSelect.value,
         customLanguage: customLanguageInput.value.trim(),
         showMarkButton: showMarkButtonCheckbox.checked,
+        showBrandText: showBrandTextCheckbox.checked,
         ...typographyFromControls(),
       },
     });
@@ -450,6 +467,11 @@ for (const input of [
   input.addEventListener("input", applyTypographyPreview);
   input.addEventListener("change", applyTypographyPreview);
 }
+showBrandTextCheckbox.addEventListener("change", () => {
+  applyBrandTextVisibility(showBrandTextCheckbox.checked);
+  typographyStatus.textContent = "预览已更新；点击“保存设置”后才会写入。";
+  typographyStatus.className = "hint";
+});
 resetTypographyBtn.addEventListener("click", () => {
   setTypographyControls(TYPOGRAPHY_DEFAULTS);
   typographyStatus.textContent = "已恢复默认预览；点击“保存设置”后才会写入。";
