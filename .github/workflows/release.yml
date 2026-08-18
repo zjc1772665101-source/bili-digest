@@ -1,0 +1,172 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve release metadata
+        id: meta
+        shell: pwsh
+        run: |
+          $manifest = Get-Content ./manifest.json -Raw -Encoding UTF8 | ConvertFrom-Json
+          $version = [string]$manifest.version
+          $tag = "v$version"
+          $zipName = "bili-digest-plus-v$version.zip"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+          "zip_path=dist/$zipName" >> $env:GITHUB_OUTPUT
+
+      - name: Validate source
+        shell: pwsh
+        run: |
+          node scripts/check.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build and inspect release ZIP
+        shell: pwsh
+        run: |
+          ./scripts/package.ps1
+          $zipPath = "${{ steps.meta.outputs.zip_path }}"
+          if (-not (Test-Path -LiteralPath $zipPath)) { throw "Release ZIP was not created: $zipPath" }
+          $verify = Join-Path $env:RUNNER_TEMP "bili-digest-release-verify"
+          if (Test-Path $verify) { Remove-Item $verify -Recurse -Force }
+          Expand-Archive -LiteralPath $zipPath -DestinationPath $verify -Force
+          $manifest = Get-Content (Join-Path $verify "manifest.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($manifest.version -ne "${{ steps.meta.outputs.version }}") { throw "Packaged manifest version mismatch" }
+          foreach ($required in @("background.js","sidepanel.js","options.js","lib/asr.js","rules/bili-media.json")) {
+            if (-not (Test-Path (Join-Path $verify $required))) { throw "Packaged file missing: $required" }
+          }
+          foreach ($forbidden in @(".github","tests","scripts",".release-payload")) {
+            if (Test-Path (Join-Path $verify $forbidden)) { throw "Development-only path leaked into ZIP: $forbidden" }
+          }
+
+      - name: Create checksum and notes
+        shell: pwsh
+        run: |
+          $zipPath = "${{ steps.meta.outputs.zip_path }}"
+          $zipName = "${{ steps.meta.outputs.zip_name }}"
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $zipPath).Hash.ToLowerInvariant()
+          "$hash  $zipName" | Set-Content -LiteralPath ./dist/SHA256SUMS.txt -Encoding ascii
+          @"
+          # Bili Digest Plus v${{ steps.meta.outputs.version }}
+
+          正式版 v0.4.2，对应当前 `main`。
+
+          ## 主要更新
+          - B站原生字幕优先；无字幕时可手动使用 Groq Whisper 生成带时间轴字幕。
+          - 支持 Whisper Large V3 / Large V3 Turbo，以及 AI 字幕缓存和概览前补字幕流程。
+          - 增强 Bilibili 媒体请求兼容性与音频获取回退。
+          - 增强本机字体读取、字体选择与排版设置。
+          - 调整侧边栏标签页与界面细节，保留翻译、对话、笔记与导出能力。
+          - 保留广域 HTTPS host permission，兼容 Groq 和用户自定义 HTTPS AI 端点。
+
+          ## 安装
+          1. 下载 `bili-digest-plus-v${{ steps.meta.outputs.version }}.zip`。
+          2. 解压 ZIP。
+          3. 在 Chrome 扩展管理页开启开发者模式。
+          4. 选择“加载已解压的扩展程序”，指向解压目录。
+
+          ## 完整性
+          Release 同时附带 `SHA256SUMS.txt`。
+          "@ | Set-Content -LiteralPath ./dist/release-notes.md -Encoding UTF8
+
+      - name: Publish or repair GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.meta.outputs.tag }}"
+          $repo = $env:GITHUB_REPOSITORY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f $tag $env:GITHUB_SHA
+          git push origin "refs/tags/$tag" --force
+          if ($LASTEXITCODE -ne 0) { throw "Failed to publish tag $tag" }
+
+          gh release view $tag --repo $repo --json tagName 1>$null 2>$null
+          $exists = $LASTEXITCODE -eq 0
+          $global:LASTEXITCODE = 0
+          if ($exists) {
+            gh release edit $tag --repo $repo --title "Bili Digest Plus $tag" --notes-file ./dist/release-notes.md --latest
+          } else {
+            gh release create $tag --repo $repo --target $env:GITHUB_SHA --title "Bili Digest Plus $tag" --notes-file ./dist/release-notes.md --latest
+          }
+          if ($LASTEXITCODE -ne 0) { throw "Failed to create or update Release $tag" }
+
+          gh release upload $tag "${{ steps.meta.outputs.zip_path }}" "dist/SHA256SUMS.txt" --repo $repo --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Failed to upload Release assets" }
+
+      - name: Verify tag, Release and downloaded asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.meta.outputs.tag }}"
+          $zipName = "${{ steps.meta.outputs.zip_name }}"
+          $zipPath = "${{ steps.meta.outputs.zip_path }}"
+          $repo = $env:GITHUB_REPOSITORY
+          $expectedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $zipPath).Hash.ToLowerInvariant()
+
+          $ref = (gh api "repos/$repo/git/ref/tags/$tag") | ConvertFrom-Json
+          $target = [string]$ref.object.sha
+          if ($ref.object.type -eq "tag") {
+            $tagObject = (gh api "repos/$repo/git/tags/$target") | ConvertFrom-Json
+            $target = [string]$tagObject.object.sha
+          }
+          if ($target -ne $env:GITHUB_SHA) { throw "Tag target mismatch: $target != $env:GITHUB_SHA" }
+
+          $release = (gh release view $tag --repo $repo --json tagName,name,isDraft,isPrerelease,url,assets) | ConvertFrom-Json
+          if ($release.tagName -ne $tag) { throw "Release tag mismatch" }
+          if ($release.isDraft -or $release.isPrerelease) { throw "Release is not a final public release" }
+          $assets = @($release.assets | ForEach-Object { $_.name })
+          if ($assets -notcontains $zipName) { throw "ZIP asset missing" }
+          if ($assets -notcontains "SHA256SUMS.txt") { throw "Checksum asset missing" }
+
+          $verifyDir = Join-Path $env:RUNNER_TEMP "release-download-verify"
+          if (Test-Path $verifyDir) { Remove-Item $verifyDir -Recurse -Force }
+          New-Item -ItemType Directory -Path $verifyDir -Force | Out-Null
+          gh release download $tag --repo $repo --pattern $zipName --dir $verifyDir
+          if ($LASTEXITCODE -ne 0) { throw "Failed to re-download Release ZIP" }
+          $downloadedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $verifyDir $zipName)).Hash.ToLowerInvariant()
+          if ($downloadedHash -ne $expectedHash) { throw "Release ZIP SHA-256 mismatch" }
+
+          Write-Host "Release URL: $($release.url)"
+          Write-Host "Tag target: $target"
+          Write-Host "ZIP SHA-256: $downloadedHash"
+          Write-Host "Release verification passed."
+
+      - name: Clean temporary release branches
+        if: success()
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $repo = $env:GITHUB_REPOSITORY
+          foreach ($branch in @("release-v0.4.2-final","release-v0.4.2-trigger","release-v0.4.2-finalize","release-v0.4.2-finalize2","release-v0.4.2-finalize3","chatgpt-groq-asr-build")) {
+            gh api -X DELETE "repos/$repo/git/refs/heads/$branch" 1>$null 2>$null
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Deleted temporary branch: $branch"
+            } else {
+              $global:LASTEXITCODE = 0
+            }
+          }

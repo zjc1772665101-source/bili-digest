@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   TYPOGRAPHY_DEFAULTS,
+  TYPOGRAPHY_LIMITS,
   TYPOGRAPHY_PRESETS,
   TYPOGRAPHY_FONT_OPTIONS,
   normalizeShowMarkButton,
@@ -17,14 +18,18 @@ import {
   applyTypographySettings,
 } from "../lib/typography.js";
 
-test("v0.4.2 排版默认值与预设存在", () => {
-  assert.equal(TYPOGRAPHY_DEFAULTS.readingFontPreset, "sans");
-  assert.equal(TYPOGRAPHY_DEFAULTS.uiFontPreset, "sans");
-  assert.ok(TYPOGRAPHY_PRESETS.default);
-  assert.ok(TYPOGRAPHY_PRESETS.compact);
-  assert.ok(TYPOGRAPHY_PRESETS.large);
-  assert.ok(TYPOGRAPHY_FONT_OPTIONS.some((item) => item.value === "sans"));
-  assert.ok(TYPOGRAPHY_FONT_OPTIONS.some((item) => item.value === "mono"));
+test("v0.4.2 排版默认值、范围与字体预设完整", () => {
+  assert.deepEqual(normalizeTypographySettings({}), TYPOGRAPHY_DEFAULTS);
+  assert.equal(TYPOGRAPHY_DEFAULTS.readingFontPreset, "default");
+  assert.equal(TYPOGRAPHY_DEFAULTS.interfaceFontPreset, "default");
+  assert.equal(TYPOGRAPHY_DEFAULTS.codeFontPreset, "mono");
+  assert.equal(TYPOGRAPHY_LIMITS.readingFontSize.max, 50);
+  assert.equal(TYPOGRAPHY_LIMITS.readingLineHeight.max, 2.2);
+  assert.ok(TYPOGRAPHY_PRESETS.includes("default"));
+  assert.ok(TYPOGRAPHY_PRESETS.includes("mono"));
+  assert.ok(TYPOGRAPHY_PRESETS.includes("ibmPlexMono"));
+  assert.ok(TYPOGRAPHY_PRESETS.includes("mapleMono"));
+  assert.ok(TYPOGRAPHY_FONT_OPTIONS.some((item) => item.value === "default"));
 });
 
 test("布尔显示设置兼容历史值", () => {
@@ -89,9 +94,7 @@ test("fontSettings 返回空列表时继续使用 Local Font Access 备用", asy
   };
   const result = await requestLocalFontList(chromeApi, {
     async queryLocalFonts() {
-      return [
-        { family: "Maple Mono CN", fullName: "Maple Mono CN Regular" },
-      ];
+      return [{ family: "Maple Mono CN", fullName: "Maple Mono CN Regular" }];
     },
   });
   assert.equal(result.granted, true);
@@ -99,7 +102,7 @@ test("fontSettings 返回空列表时继续使用 Local Font Access 备用", asy
   assert.equal(result.fonts[0].fontId, "Maple Mono CN");
 });
 
-test("两个本机字体接口都为空时返回明确错误，而不是伪报成功读取 0 个", async () => {
+test("两个本机字体接口都为空时返回明确错误", async () => {
   const chromeApi = {
     fontSettings: {
       getFontList(callback) {
@@ -117,33 +120,30 @@ test("两个本机字体接口都为空时返回明确错误，而不是伪报�
   assert.match(result.error, /空的本机字体列表/);
 });
 
-test("normalizeTypographySettings 会归一化范围和本机字体", () => {
+test("normalizeTypographySettings 会按当前字段归一化范围和本机字体", () => {
   const settings = normalizeTypographySettings({
     readingFontPreset: "local:Commit Mono",
-    uiFontPreset: "mono",
+    interfaceFontPreset: "mono",
     readingFontSize: 999,
-    uiFontSize: -20,
+    settingsFontSize: -20,
     readingLineHeight: 99,
-    videoMarkButtonSize: 1,
-    showMarkButton: "false",
-    showBrandText: "0",
+    videoActionButtonSize: 1,
   });
   assert.equal(settings.readingFontPreset, "local:Commit Mono");
-  assert.equal(settings.uiFontPreset, "mono");
-  assert.ok(settings.readingFontSize <= 50);
-  assert.ok(settings.uiFontSize >= 12);
-  assert.ok(settings.readingLineHeight <= 2.4);
-  assert.ok(settings.videoMarkButtonSize >= 36);
-  assert.equal(settings.showMarkButton, false);
-  assert.equal(settings.showBrandText, false);
+  assert.equal(settings.interfaceFontPreset, "mono");
+  assert.equal(settings.readingFontSize, 50);
+  assert.equal(settings.settingsFontSize, 12);
+  assert.equal(settings.readingLineHeight, 2.2);
+  assert.equal(settings.videoActionButtonSize, 36);
 });
 
 test("本机字体 family 与 CSS 变量安全生成", () => {
   assert.match(typographyFontFamily("local:Commit Mono"), /Commit Mono/);
-  assert.equal(typographyFontFamily("local:bad; color:red"), typographyFontFamily("sans"));
+  assert.equal(typographyFontFamily("local:bad; color:red"), typographyFontFamily("default"));
   const css = typographyToCssVars({ readingFontPreset: "local:Commit Mono" });
-  assert.match(css["--font-reading"], /Commit Mono/);
+  assert.match(css["--reading-font-family"], /Commit Mono/);
   assert.match(css["--reading-font-size"], /px$/);
+  assert.equal(css["--reading-line-height"], "1.7");
 });
 
 test("applyTypographySettings 可应用到任意 style.setProperty 根节点", () => {
@@ -155,7 +155,7 @@ test("applyTypographySettings 可应用到任意 style.setProperty 根节点", (
       },
     },
   };
-  const normalized = applyTypographySettings({ readingFontSize: 19 }, root);
+  const normalized = applyTypographySettings(root, { readingFontSize: 19 });
   assert.equal(normalized.readingFontSize, 19);
   assert.equal(values.get("--reading-font-size"), "19px");
 });
