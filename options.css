@@ -13,16 +13,23 @@
   --ok: #21ba45;
   --danger: #f85a54;
 
-  --font-display: "Stack Sans Headline", "MiSans", "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  --font-body: "Stack Sans Text", "MiSans", "PingFang SC",
+  --interface-font-family: "Stack Sans Text", "MiSans", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --code-font-family: ui-monospace, "Cascadia Code", Consolas, "SF Mono", monospace;
+  --font-display: var(--interface-font-family);
+  --font-body: var(--interface-font-family);
 
   --reading-font-family: "Stack Sans Text", "MiSans", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --reading-font-size: 14px;
   --reading-line-height: 1.7;
   --reading-letter-spacing: 0em;
+  --type-brand-size: 12px;
+  --type-title-size: 17px;
+  --type-nav-size: 13px;
+  --type-control-size: 13px;
+  --type-meta-size: 11px;
+  --type-code-size: 12px;
 
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -297,4 +304,108 @@ select:focus {
 
 .hidden {
   display: none !important;
+}
+
+/* ============ 可调排版变量（与侧边栏保持同一组 ID/语义） ============ */
+
+body {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-control-size);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-control-size);
+}
+
+.page-head h1,
+.group h2,
+.typography-preview-title {
+  font-size: var(--type-title-size);
+}
+
+.field-label,
+label,
+.typography-preview-controls button {
+  font-size: var(--type-control-size);
+}
+
+.hint,
+.savedHint,
+#typographyStatus,
+#localFontsStatus,
+#keyTestResult,
+#modelListHint,
+#savedHint,
+.typography-preview-meta {
+  font-size: var(--type-meta-size);
+}
+
+.theme-toggle {
+  font-size: var(--type-control-size);
+}
+
+.brand-name,
+.typography-preview-brand {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-brand-size);
+}
+
+.typography-preview-nav {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-nav-size);
+}
+
+.typography-preview code {
+  font-family: var(--code-font-family);
+  font-size: var(--type-code-size);
+}
+
+.typography-advanced {
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
+}
+
+.typography-advanced summary {
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: var(--type-control-size);
+}
+
+.typography-advanced-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.local-font-actions {
+  align-items: center;
+}
+
+.typography-preview-brand,
+.typography-preview-title,
+.typography-preview-nav,
+.typography-preview-controls {
+  margin: 0;
+}
+
+.typography-preview-nav {
+  display: flex;
+  gap: 10px;
+  color: var(--ink-2);
+}
+
+.typography-preview-controls {
+  color: var(--ink-2);
+}
+
+.typography-preview-controls button {
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-2);
 }

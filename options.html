@@ -70,8 +70,71 @@
               <option value="misans">MiSans</option>
               <option value="system">系统无衬线</option>
               <option value="serif">衬线阅读</option>
+              <option value="microsoftYaHei">微软雅黑</option>
+              <option value="dengxian">等线</option>
+              <option value="simsun">宋体</option>
+              <option value="kaiti">楷体</option>
+              <option value="fangsong">仿宋</option>
+              <option value="segoe">Segoe UI</option>
+              <option value="arial">Arial</option>
+              <option value="georgia">Georgia</option>
+              <option value="times">Times New Roman</option>
+              <option value="mono">等宽（系统）</option>
+              <option value="cascadia">Cascadia Code</option>
+              <option value="consolas">Consolas</option>
+              <option value="jetbrains">JetBrains Mono</option>
             </select>
             <p id="readingFontPresetHint" class="hint dim">只应用于字幕、概览、笔记和对话正文。</p>
+          </div>
+          <div class="typography-control">
+            <label class="field-label" for="interfaceFontPresetSelect">界面字体</label>
+            <select id="interfaceFontPresetSelect" aria-describedby="interfaceFontPresetHint">
+              <option value="default">默认（Stack Sans Text → MiSans）</option>
+              <option value="misans">MiSans</option>
+              <option value="system">系统无衬线</option>
+              <option value="serif">衬线阅读</option>
+              <option value="microsoftYaHei">微软雅黑</option>
+              <option value="dengxian">等线</option>
+              <option value="simsun">宋体</option>
+              <option value="kaiti">楷体</option>
+              <option value="fangsong">仿宋</option>
+              <option value="segoe">Segoe UI</option>
+              <option value="arial">Arial</option>
+              <option value="georgia">Georgia</option>
+              <option value="times">Times New Roman</option>
+              <option value="mono">等宽（系统）</option>
+              <option value="cascadia">Cascadia Code</option>
+              <option value="consolas">Consolas</option>
+              <option value="jetbrains">JetBrains Mono</option>
+            </select>
+            <p id="interfaceFontPresetHint" class="hint dim">应用于品牌、标题、导航、按钮和辅助文字。</p>
+          </div>
+          <div class="typography-control">
+            <label class="field-label" for="codeFontPresetSelect">等宽字体</label>
+            <select id="codeFontPresetSelect" aria-describedby="codeFontPresetHint">
+              <option value="default">默认（Stack Sans Text → MiSans）</option>
+              <option value="misans">MiSans</option>
+              <option value="system">系统无衬线</option>
+              <option value="serif">衬线阅读</option>
+              <option value="microsoftYaHei">微软雅黑</option>
+              <option value="dengxian">等线</option>
+              <option value="simsun">宋体</option>
+              <option value="kaiti">楷体</option>
+              <option value="fangsong">仿宋</option>
+              <option value="segoe">Segoe UI</option>
+              <option value="arial">Arial</option>
+              <option value="georgia">Georgia</option>
+              <option value="times">Times New Roman</option>
+              <option value="mono">等宽（系统）</option>
+              <option value="cascadia">Cascadia Code</option>
+              <option value="consolas">Consolas</option>
+              <option value="jetbrains">JetBrains Mono</option>
+            </select>
+            <p id="codeFontPresetHint" class="hint dim">应用于时间戳、代码、BV 号等 mono 内容。</p>
+          </div>
+          <div class="button-row local-font-actions">
+            <button id="readLocalFontsBtn" class="ghost-btn" type="button">读取本机字体</button>
+            <span id="localFontsStatus" class="hint" role="status" aria-live="polite">仅在点击后申请可选权限，字体列表只在本机使用。</span>
           </div>
           <div class="typography-control">
             <label class="field-label" for="readingFontSizeRange">字号 <output id="readingFontSizeOutput" for="readingFontSizeRange">14 px</output></label>
@@ -85,9 +148,42 @@
             <label class="field-label" for="readingLetterSpacingRange">字间距 <output id="readingLetterSpacingOutput" for="readingLetterSpacingRange">0</output></label>
             <input id="readingLetterSpacingRange" type="range" min="0" max="0.08" step="0.01" value="0" aria-describedby="readingLetterSpacingOutput" />
           </div>
+          <details class="typography-advanced">
+            <summary>更多界面字号</summary>
+            <div class="typography-advanced-grid">
+              <div class="typography-control">
+                <label class="field-label" for="brandFontSizeRange">品牌字号 <output id="brandFontSizeOutput" for="brandFontSizeRange">12 px</output></label>
+                <input id="brandFontSizeRange" type="range" min="10" max="30" step="1" value="12" aria-describedby="brandFontSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="titleFontSizeRange">标题字号 <output id="titleFontSizeOutput" for="titleFontSizeRange">17 px</output></label>
+                <input id="titleFontSizeRange" type="range" min="12" max="30" step="1" value="17" aria-describedby="titleFontSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="navigationFontSizeRange">导航字号 <output id="navigationFontSizeOutput" for="navigationFontSizeRange">13 px</output></label>
+                <input id="navigationFontSizeRange" type="range" min="10" max="30" step="1" value="13" aria-describedby="navigationFontSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="controlFontSizeRange">控件字号 <output id="controlFontSizeOutput" for="controlFontSizeRange">13 px</output></label>
+                <input id="controlFontSizeRange" type="range" min="10" max="30" step="1" value="13" aria-describedby="controlFontSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="metaFontSizeRange">辅助字号 <output id="metaFontSizeOutput" for="metaFontSizeRange">11 px</output></label>
+                <input id="metaFontSizeRange" type="range" min="8" max="30" step="1" value="11" aria-describedby="metaFontSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="codeFontSizeRange">代码字号 <output id="codeFontSizeOutput" for="codeFontSizeRange">12 px</output></label>
+                <input id="codeFontSizeRange" type="range" min="8" max="30" step="1" value="12" aria-describedby="codeFontSizeOutput" />
+              </div>
+            </div>
+          </details>
           <div class="typography-preview" aria-label="阅读排版预览">
+            <p class="typography-preview-brand">BILI DIGEST · 品牌预览</p>
+            <p class="typography-preview-title">视频标题预览：让每个区域都清晰可读</p>
+            <p class="typography-preview-nav"><span>字幕</span><span>概览</span><span>笔记</span><span>设置</span></p>
             <p class="typography-preview-zh">中文预览：让字幕、概览与笔记更适合长时间阅读。</p>
             <p class="typography-preview-tr">Latin / English preview 123456</p>
+            <p class="typography-preview-controls"><button type="button" tabindex="-1">按钮预览</button> <span class="typography-preview-meta">辅助文字 · 00:12</span> <code>const mono = true;</code></p>
           </div>
           <div class="button-row typography-actions">
             <button id="resetTypographyBtn" class="ghost-btn" type="button">恢复默认</button>

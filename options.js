@@ -6,7 +6,9 @@ import { ensureHostPermission } from "./lib/host-permissions.js";
 import {
   TYPOGRAPHY_DEFAULTS,
   applyTypographySettings,
+  getFontOptions,
   normalizeTypographySettings,
+  requestLocalFontList,
 } from "./lib/typography.js";
 
 const $ = (id) => document.getElementById(id);
@@ -35,6 +37,24 @@ const readingLetterSpacingRange = $("readingLetterSpacingRange");
 const readingLetterSpacingOutput = $("readingLetterSpacingOutput");
 const resetTypographyBtn = $("resetTypographyBtn");
 const typographyStatus = $("typographyStatus");
+const interfaceFontPresetSelect = $("interfaceFontPresetSelect");
+const codeFontPresetSelect = $("codeFontPresetSelect");
+const readLocalFontsBtn = $("readLocalFontsBtn");
+const localFontsStatus = $("localFontsStatus");
+const brandFontSizeRange = $("brandFontSizeRange");
+const brandFontSizeOutput = $("brandFontSizeOutput");
+const titleFontSizeRange = $("titleFontSizeRange");
+const titleFontSizeOutput = $("titleFontSizeOutput");
+const navigationFontSizeRange = $("navigationFontSizeRange");
+const navigationFontSizeOutput = $("navigationFontSizeOutput");
+const controlFontSizeRange = $("controlFontSizeRange");
+const controlFontSizeOutput = $("controlFontSizeOutput");
+const metaFontSizeRange = $("metaFontSizeRange");
+const metaFontSizeOutput = $("metaFontSizeOutput");
+const codeFontSizeRange = $("codeFontSizeRange");
+const codeFontSizeOutput = $("codeFontSizeOutput");
+const fontSelects = [readingFontPresetSelect, interfaceFontPresetSelect, codeFontPresetSelect];
+const localFontEntries = [];
 
 async function send(action, payload = {}) {
   const response = await chrome.runtime.sendMessage({ action, ...payload });
@@ -77,9 +97,48 @@ function updateModelCustomVisibility() {
   modelInput.classList.toggle("hidden", modelSelect.value !== "__custom__");
 }
 
+function populateFontOptions() {
+  for (const select of fontSelects) {
+    if (!select) continue;
+    const selected = select.value;
+    select.replaceChildren();
+    for (const optionData of getFontOptions(localFontEntries)) {
+      const option = document.createElement("option");
+      option.value = optionData.value;
+      option.textContent = optionData.label;
+      select.appendChild(option);
+    }
+    if (selected && !Array.from(select.options).some((option) => option.value === selected)) {
+      const option = document.createElement("option");
+      option.value = selected;
+      option.textContent = `已保存：${selected.startsWith("local:") ? selected.slice(6) : selected}`;
+      select.appendChild(option);
+    }
+    if (selected) select.value = selected;
+  }
+}
+
+function ensureFontChoiceOption(select, value) {
+  if (Array.from(select.options).some((option) => option.value === value)) return;
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = value.startsWith("local:")
+    ? `已保存：${value.slice(6)}`
+    : `已保存：${value}`;
+  select.appendChild(option);
+}
+
 function typographyFromControls() {
   return normalizeTypographySettings({
     readingFontPreset: readingFontPresetSelect.value,
+    interfaceFontPreset: interfaceFontPresetSelect.value,
+    codeFontPreset: codeFontPresetSelect.value,
+    brandFontSize: brandFontSizeRange.value,
+    titleFontSize: titleFontSizeRange.value,
+    navigationFontSize: navigationFontSizeRange.value,
+    controlFontSize: controlFontSizeRange.value,
+    metaFontSize: metaFontSizeRange.value,
+    codeFontSize: codeFontSizeRange.value,
     readingFontSize: readingFontSizeRange.value,
     readingLineHeight: readingLineHeightRange.value,
     readingLetterSpacing: readingLetterSpacingRange.value,
@@ -92,7 +151,25 @@ function formatLetterSpacing(value) {
 
 function setTypographyControls(input) {
   const settings = normalizeTypographySettings(input);
+  populateFontOptions();
+  ensureFontChoiceOption(readingFontPresetSelect, settings.readingFontPreset);
+  ensureFontChoiceOption(interfaceFontPresetSelect, settings.interfaceFontPreset);
+  ensureFontChoiceOption(codeFontPresetSelect, settings.codeFontPreset);
   readingFontPresetSelect.value = settings.readingFontPreset;
+  interfaceFontPresetSelect.value = settings.interfaceFontPreset;
+  codeFontPresetSelect.value = settings.codeFontPreset;
+  for (const [range, output, key] of [
+    [brandFontSizeRange, brandFontSizeOutput, "brandFontSize"],
+    [titleFontSizeRange, titleFontSizeOutput, "titleFontSize"],
+    [navigationFontSizeRange, navigationFontSizeOutput, "navigationFontSize"],
+    [controlFontSizeRange, controlFontSizeOutput, "controlFontSize"],
+    [metaFontSizeRange, metaFontSizeOutput, "metaFontSize"],
+    [codeFontSizeRange, codeFontSizeOutput, "codeFontSize"],
+  ]) {
+    range.value = String(settings[key]);
+    output.value = `${settings[key]} px`;
+    output.textContent = `${settings[key]} px`;
+  }
   readingFontSizeRange.value = String(settings.readingFontSize);
   readingLineHeightRange.value = settings.readingLineHeight.toFixed(1);
   readingLetterSpacingRange.value = settings.readingLetterSpacing.toFixed(2);
@@ -104,6 +181,31 @@ function setTypographyControls(input) {
   readingLetterSpacingOutput.textContent = formatLetterSpacing(settings.readingLetterSpacing);
   applyTypographySettings(document.documentElement, settings);
   return settings;
+}
+
+async function readLocalFonts() {
+  readLocalFontsBtn.disabled = true;
+  localFontsStatus.className = "hint";
+  localFontsStatus.textContent = "正在申请权限并读取本机字体…";
+  try {
+    const result = await requestLocalFontList();
+    if (result.granted) {
+      localFontEntries.splice(0, localFontEntries.length, ...result.fonts);
+      const current = typographyFromControls();
+      populateFontOptions();
+      setTypographyControls(current);
+      localFontsStatus.className = "hint ok";
+      localFontsStatus.textContent = `已读取 ${result.fonts.length} 个本机字体，仅在本机使用。`;
+    } else {
+      localFontsStatus.className = "hint error";
+      localFontsStatus.textContent = result.error || "未读取本机字体，内置字体仍可使用。";
+    }
+  } catch (error) {
+    localFontsStatus.className = "hint error";
+    localFontsStatus.textContent = error.message || "读取本机字体失败，内置字体仍可使用。";
+  } finally {
+    readLocalFontsBtn.disabled = false;
+  }
 }
 
 function applyTypographyPreview() {
@@ -292,9 +394,17 @@ saveSettingsBtn.addEventListener("click", saveSettings);
 
 for (const input of [
   readingFontPresetSelect,
+  interfaceFontPresetSelect,
+  codeFontPresetSelect,
   readingFontSizeRange,
   readingLineHeightRange,
   readingLetterSpacingRange,
+  brandFontSizeRange,
+  titleFontSizeRange,
+  navigationFontSizeRange,
+  controlFontSizeRange,
+  metaFontSizeRange,
+  codeFontSizeRange,
 ]) {
   input.addEventListener("input", applyTypographyPreview);
   input.addEventListener("change", applyTypographyPreview);
@@ -304,6 +414,8 @@ resetTypographyBtn.addEventListener("click", () => {
   typographyStatus.textContent = "已恢复默认预览；点击“保存设置”后才会写入。";
   typographyStatus.className = "hint";
 });
+readLocalFontsBtn.addEventListener("click", readLocalFonts);
 
 loadTheme();
+populateFontOptions();
 loadSettings();

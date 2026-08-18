@@ -22,17 +22,24 @@
   --ok: #21ba45;
   --danger: #f85a54;
 
-  --font-display: "Stack Sans Headline", "MiSans", "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  --font-body: "Stack Sans Text", "MiSans", "PingFang SC",
+  --interface-font-family: "Stack Sans Text", "MiSans", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --font-mono: "Cascadia Code", "SF Mono", Consolas, ui-monospace, monospace;
+  --code-font-family: ui-monospace, "Cascadia Code", Consolas, "SF Mono", monospace;
+  --font-display: var(--interface-font-family);
+  --font-body: var(--interface-font-family);
+  --font-mono: var(--code-font-family);
 
   --reading-font-family: "Stack Sans Text", "MiSans", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --reading-font-size: 14px;
   --reading-line-height: 1.7;
   --reading-letter-spacing: 0em;
+  --type-brand-size: 12px;
+  --type-title-size: 17px;
+  --type-nav-size: 13px;
+  --type-control-size: 13px;
+  --type-meta-size: 11px;
+  --type-code-size: 12px;
 
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -1388,4 +1395,164 @@ select:focus {
     animation-duration: 0.001s !important;
     transition-duration: 0.001s !important;
   }
+}
+
+/* ============ 可调排版变量（与 options 页面保持同一语义） ============ */
+
+body {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-control-size);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-control-size);
+}
+
+/* 笔记和对话正文仍属于阅读区域，保留 reading 字体与倍率。 */
+.note-composer textarea,
+.chat-composer textarea,
+.chat-edit-box textarea {
+  font-family: var(--reading-font-family);
+  font-size: calc(var(--reading-font-size) * 0.929);
+}
+
+.brand-name {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-brand-size);
+}
+
+.brand-sub {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-brand-size);
+}
+
+.video-title,
+.group-title,
+.chat-title {
+  font-size: var(--type-title-size);
+}
+
+.tab,
+.mode {
+  font-size: var(--type-nav-size);
+}
+
+.field-label,
+label,
+.primary-btn,
+.ghost-btn,
+.icon-btn,
+.note-actions button,
+.quote-actions button,
+.chat-msg-action {
+  font-size: var(--type-control-size);
+}
+
+.hint,
+.status-line,
+.toast,
+.empty-state p,
+.card-label,
+.chat-msg-head,
+.chat-msg-time,
+.video-meta,
+.video-meta-author,
+.video-meta-bv,
+.note-video-title,
+.segment-time,
+.segment-explain,
+.note-time,
+.quote-time,
+.chapter-time,
+.chip {
+  font-size: var(--type-meta-size);
+}
+
+code,
+pre,
+.font-mono,
+.video-meta-bv,
+.segment-time,
+.chapter-time,
+.quote-time,
+.note-time,
+.chip,
+.chat-msg-time,
+.chat-msg-text code {
+  font-family: var(--code-font-family);
+  font-size: var(--type-code-size);
+}
+
+.empty-state .empty-glyph {
+  /* SVG 的几何尺寸保持固定；这里只约束文字。 */
+  width: 30px;
+  height: 30px;
+}
+
+.typography-advanced {
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
+}
+
+.typography-advanced summary {
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: var(--type-control-size);
+}
+
+.typography-advanced-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.local-font-actions {
+  align-items: center;
+}
+
+.typography-preview-brand,
+.typography-preview-title,
+.typography-preview-nav,
+.typography-preview-controls {
+  margin: 0;
+}
+
+.typography-preview-brand {
+  font-family: var(--interface-font-family);
+  font-size: var(--type-brand-size);
+}
+
+.typography-preview-title {
+  font-family: var(--interface-font-family);
+}
+
+.typography-preview-nav {
+  display: flex;
+  gap: 10px;
+  color: var(--ink-2);
+  font-family: var(--interface-font-family);
+  font-size: var(--type-nav-size);
+}
+
+.typography-preview-controls {
+  color: var(--ink-2);
+}
+
+.typography-preview-controls button {
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-family: var(--interface-font-family);
+  font-size: var(--type-control-size);
+}
+
+.typography-preview code {
+  font-family: var(--code-font-family);
+  font-size: var(--type-code-size);
 }
