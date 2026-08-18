@@ -21,8 +21,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f .release-payload/v042.tar.gz.b64 || exit 0
-          base64 -d .release-payload/v042.tar.gz.b64 > /tmp/v042.tar.gz
+          shopt -s nullglob
+          parts=(.release-payload/v042-*.part)
+          if [ "${#parts[@]}" -ne 8 ]; then
+            echo "Waiting for all 8 payload chunks; found ${#parts[@]}."
+            exit 0
+          fi
+          cat "${parts[@]}" > /tmp/v042.b64
+          echo '487ac47f929d456b8608626d2b7e6e8d9a7479eb5747d62662c330b39ead3da1  /tmp/v042.b64' | sha256sum -c -
+          base64 -d /tmp/v042.b64 > /tmp/v042.tar.gz
           echo '02ae307dc04bfc8207043d10cb9ec4afaae6f2185f83aad2118c681e79c8b959  /tmp/v042.tar.gz' | sha256sum -c -
           tar -xzf /tmp/v042.tar.gz -C .
           rm -rf .release-payload
