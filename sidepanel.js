@@ -16,6 +16,11 @@ import {
 import { normalizeProviderConfig, requestAiCompletionStream } from "./lib/ai.js";
 import { ensureHostPermission } from "./lib/host-permissions.js";
 import { renderMarkdown } from "./lib/markdown.js";
+import {
+  TYPOGRAPHY_DEFAULTS,
+  applyTypographySettings,
+  normalizeTypographySettings,
+} from "./lib/typography.js";
 
 const EMPTY_GLYPHS = {
   video: '<svg class="empty-glyph" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 3.5l4 3 4-3"/></svg>',
@@ -43,6 +48,7 @@ const state = {
     targetLanguage: "English",
     customLanguage: "",
     thinkingLevel: "off",
+    ...TYPOGRAPHY_DEFAULTS,
   },
   settingsLoaded: false,
   notes: [],
@@ -106,6 +112,15 @@ const explainOriginalEl = $("explainOriginal");
 const explainResultEl = $("explainResult");
 const closeExplainBtn = $("closeExplainBtn");
 const themeToggleBtn = $("themeToggleBtn");
+const readingFontPresetSelect = $("readingFontPresetSelect");
+const readingFontSizeRange = $("readingFontSizeRange");
+const readingFontSizeOutput = $("readingFontSizeOutput");
+const readingLineHeightRange = $("readingLineHeightRange");
+const readingLineHeightOutput = $("readingLineHeightOutput");
+const readingLetterSpacingRange = $("readingLetterSpacingRange");
+const readingLetterSpacingOutput = $("readingLetterSpacingOutput");
+const resetTypographyBtn = $("resetTypographyBtn");
+const typographyStatus = $("typographyStatus");
 const regenerateChatBtn = $("regenerateChatBtn");
 const exportChatBtn = $("exportChatBtn");
 const exportNotesBtn = $("exportNotesBtn");
@@ -1574,6 +1589,7 @@ async function loadSettings() {
     targetLanguageSelect.value = state.settings.targetLanguage || "English";
     customLanguageInput.value = state.settings.customLanguage || "";
     updateCustomVisibility();
+    setTypographyControls(state.settings);
     state.settingsLoaded = true;
   } catch (error) {
     showToast(error.message, "error");
@@ -1589,6 +1605,42 @@ function updateCustomVisibility() {
 
 function updateModelCustomVisibility() {
   modelInput.classList.toggle("hidden", modelSelect.value !== "__custom__");
+}
+
+function typographyFromControls() {
+  return normalizeTypographySettings({
+    readingFontPreset: readingFontPresetSelect.value,
+    readingFontSize: readingFontSizeRange.value,
+    readingLineHeight: readingLineHeightRange.value,
+    readingLetterSpacing: readingLetterSpacingRange.value,
+  });
+}
+
+function formatLetterSpacing(value) {
+  return `${Number(value).toFixed(2).replace(/0+$/, "").replace(/\.$/, "")} em`;
+}
+
+function setTypographyControls(input) {
+  const settings = normalizeTypographySettings(input);
+  readingFontPresetSelect.value = settings.readingFontPreset;
+  readingFontSizeRange.value = String(settings.readingFontSize);
+  readingLineHeightRange.value = settings.readingLineHeight.toFixed(1);
+  readingLetterSpacingRange.value = settings.readingLetterSpacing.toFixed(2);
+  readingFontSizeOutput.value = `${settings.readingFontSize} px`;
+  readingFontSizeOutput.textContent = `${settings.readingFontSize} px`;
+  readingLineHeightOutput.value = settings.readingLineHeight.toFixed(1);
+  readingLineHeightOutput.textContent = settings.readingLineHeight.toFixed(1);
+  readingLetterSpacingOutput.value = String(settings.readingLetterSpacing);
+  readingLetterSpacingOutput.textContent = formatLetterSpacing(settings.readingLetterSpacing);
+  applyTypographySettings(document.documentElement, settings);
+  return settings;
+}
+
+function applyTypographyPreview() {
+  const settings = setTypographyControls(typographyFromControls());
+  typographyStatus.textContent = "预览已更新；点击“保存设置”后才会写入。";
+  typographyStatus.className = "hint";
+  return settings;
 }
 
 function setModelSelectOptions(names, selected) {
@@ -1630,6 +1682,7 @@ async function saveSettings() {
     thinkingLevel: thinkingLevelSelect.value,
     targetLanguage: targetLanguageSelect.value,
     customLanguage: customLanguageInput.value.trim(),
+    ...typographyFromControls(),
   };
   try {
     const result = await send("setSettings", { settings });
@@ -1823,6 +1876,20 @@ for (const input of [apiKeyInput, baseUrlInput]) {
   });
 }
 targetLanguageSelect.addEventListener("change", updateCustomVisibility);
+for (const input of [
+  readingFontPresetSelect,
+  readingFontSizeRange,
+  readingLineHeightRange,
+  readingLetterSpacingRange,
+]) {
+  input.addEventListener("input", applyTypographyPreview);
+  input.addEventListener("change", applyTypographyPreview);
+}
+resetTypographyBtn.addEventListener("click", () => {
+  setTypographyControls(TYPOGRAPHY_DEFAULTS);
+  typographyStatus.textContent = "已恢复默认预览；点击“保存设置”后才会写入。";
+  typographyStatus.className = "hint";
+});
 document.querySelectorAll(".notes-scope .mode").forEach((button) => {
   button.addEventListener("click", () => switchNotesScope(button.dataset.scope));
 });
@@ -1862,6 +1929,7 @@ chrome.runtime.onMessage.addListener((message) => {
 // ============================================================
 
 loadTheme();
+loadSettings();
 detectVideo();
 setInterval(detectVideo, 2000);
 // 笔记标签页打开时，每秒同步一次当前播放时间

@@ -168,6 +168,42 @@
         </div>
 
         <div class="settings-group">
+          <h2 class="group-title">阅读外观</h2>
+          <div class="typography-controls">
+            <div class="typography-control">
+              <label class="field-label" for="readingFontPresetSelect">字体</label>
+              <select id="readingFontPresetSelect" aria-describedby="readingFontPresetHint">
+                <option value="default">默认（Stack Sans Text → MiSans）</option>
+                <option value="misans">MiSans</option>
+                <option value="system">系统无衬线</option>
+                <option value="serif">衬线阅读</option>
+              </select>
+              <p id="readingFontPresetHint" class="hint dim">只应用于字幕、概览、笔记和对话正文。</p>
+            </div>
+            <div class="typography-control">
+              <label class="field-label" for="readingFontSizeRange">字号 <output id="readingFontSizeOutput" for="readingFontSizeRange">14 px</output></label>
+              <input id="readingFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-describedby="readingFontSizeOutput" />
+            </div>
+            <div class="typography-control">
+              <label class="field-label" for="readingLineHeightRange">行间距 <output id="readingLineHeightOutput" for="readingLineHeightRange">1.7</output></label>
+              <input id="readingLineHeightRange" type="range" min="1.4" max="2.2" step="0.1" value="1.7" aria-describedby="readingLineHeightOutput" />
+            </div>
+            <div class="typography-control">
+              <label class="field-label" for="readingLetterSpacingRange">字间距 <output id="readingLetterSpacingOutput" for="readingLetterSpacingRange">0</output></label>
+              <input id="readingLetterSpacingRange" type="range" min="0" max="0.08" step="0.01" value="0" aria-describedby="readingLetterSpacingOutput" />
+            </div>
+            <div class="typography-preview" aria-label="阅读排版预览">
+              <p class="typography-preview-zh">中文预览：让字幕、概览与笔记更适合长时间阅读。</p>
+              <p class="typography-preview-tr">Latin / English preview 123456</p>
+            </div>
+            <div class="button-row typography-actions">
+              <button id="resetTypographyBtn" class="ghost-btn" type="button">恢复默认</button>
+              <span id="typographyStatus" class="hint" role="status" aria-live="polite">修改后会即时预览，点击“保存设置”才会写入。</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-group">
           <h2 class="group-title">翻译</h2>
           <label class="field-label" for="targetLanguageSelect">目标语言</label>
           <select id="targetLanguageSelect">

@@ -28,6 +28,10 @@ import {
   parseLooseJson,
 } from "./lib/ai.js";
 import { buildNoteContext, segmentsToText } from "./lib/note-context.js";
+import {
+  TYPOGRAPHY_DEFAULTS,
+  normalizeTypographySettings,
+} from "./lib/typography.js";
 
 const DEBUG = false;
 const TRANSLATE_BATCH_SIZE = 3;
@@ -55,6 +59,7 @@ const DEFAULT_SETTINGS = {
   targetLanguage: "English",
   customLanguage: "",
   thinkingLevel: "off",
+  ...TYPOGRAPHY_DEFAULTS,
 };
 
 /**
@@ -72,6 +77,7 @@ function mergeSettings(base, incoming = {}) {
   )
     ? String(merged.thinkingLevel)
     : "off";
+  Object.assign(merged, normalizeTypographySettings(merged));
   // 清理旧版多供应商字段，统一到单入口
   delete merged.aiProvider;
   delete merged.providers;

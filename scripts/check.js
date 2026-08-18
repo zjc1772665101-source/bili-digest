@@ -29,6 +29,7 @@ const REQUIRED_FILES = [
   "lib/export.js",
   "lib/note-context.js",
   "lib/markdown.js",
+  "lib/typography.js",
   "fonts/stack-sans/stack-sans.css",
   "fonts/misans/MiSans-Regular.min.css",
   "fonts/misans/MiSans-Medium.min.css",
@@ -57,6 +58,7 @@ const JS_FILES = [
   "lib/export.js",
   "lib/note-context.js",
   "lib/markdown.js",
+  "lib/typography.js",
 ];
 
 function fail(message) {

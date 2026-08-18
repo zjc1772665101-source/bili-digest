@@ -3,6 +3,11 @@
  */
 
 import { ensureHostPermission } from "./lib/host-permissions.js";
+import {
+  TYPOGRAPHY_DEFAULTS,
+  applyTypographySettings,
+  normalizeTypographySettings,
+} from "./lib/typography.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -21,6 +26,15 @@ const customLanguageInput = $("customLanguageInput");
 const saveSettingsBtn = $("saveSettingsBtn");
 const savedHint = $("savedHint");
 const themeToggleBtn = $("themeToggleBtn");
+const readingFontPresetSelect = $("readingFontPresetSelect");
+const readingFontSizeRange = $("readingFontSizeRange");
+const readingFontSizeOutput = $("readingFontSizeOutput");
+const readingLineHeightRange = $("readingLineHeightRange");
+const readingLineHeightOutput = $("readingLineHeightOutput");
+const readingLetterSpacingRange = $("readingLetterSpacingRange");
+const readingLetterSpacingOutput = $("readingLetterSpacingOutput");
+const resetTypographyBtn = $("resetTypographyBtn");
+const typographyStatus = $("typographyStatus");
 
 async function send(action, payload = {}) {
   const response = await chrome.runtime.sendMessage({ action, ...payload });
@@ -63,6 +77,42 @@ function updateModelCustomVisibility() {
   modelInput.classList.toggle("hidden", modelSelect.value !== "__custom__");
 }
 
+function typographyFromControls() {
+  return normalizeTypographySettings({
+    readingFontPreset: readingFontPresetSelect.value,
+    readingFontSize: readingFontSizeRange.value,
+    readingLineHeight: readingLineHeightRange.value,
+    readingLetterSpacing: readingLetterSpacingRange.value,
+  });
+}
+
+function formatLetterSpacing(value) {
+  return `${Number(value).toFixed(2).replace(/0+$/, "").replace(/\.$/, "")} em`;
+}
+
+function setTypographyControls(input) {
+  const settings = normalizeTypographySettings(input);
+  readingFontPresetSelect.value = settings.readingFontPreset;
+  readingFontSizeRange.value = String(settings.readingFontSize);
+  readingLineHeightRange.value = settings.readingLineHeight.toFixed(1);
+  readingLetterSpacingRange.value = settings.readingLetterSpacing.toFixed(2);
+  readingFontSizeOutput.value = `${settings.readingFontSize} px`;
+  readingFontSizeOutput.textContent = `${settings.readingFontSize} px`;
+  readingLineHeightOutput.value = settings.readingLineHeight.toFixed(1);
+  readingLineHeightOutput.textContent = settings.readingLineHeight.toFixed(1);
+  readingLetterSpacingOutput.value = String(settings.readingLetterSpacing);
+  readingLetterSpacingOutput.textContent = formatLetterSpacing(settings.readingLetterSpacing);
+  applyTypographySettings(document.documentElement, settings);
+  return settings;
+}
+
+function applyTypographyPreview() {
+  const settings = setTypographyControls(typographyFromControls());
+  typographyStatus.textContent = "预览已更新；点击“保存设置”后才会写入。";
+  typographyStatus.className = "hint";
+  return settings;
+}
+
 function setModelSelectOptions(names, selected) {
   modelSelect.replaceChildren();
   for (const name of names) {
@@ -101,6 +151,7 @@ async function loadSettings() {
     targetLanguageSelect.value = settings.targetLanguage || "English";
     customLanguageInput.value = settings.customLanguage || "";
     updateCustomVisibility();
+    setTypographyControls(settings);
   } catch (error) {
     keyTestResultEl.className = "hint error";
     keyTestResultEl.textContent = error.message;
@@ -125,6 +176,7 @@ async function saveSettings() {
         thinkingLevel: thinkingLevelSelect.value,
         targetLanguage: targetLanguageSelect.value,
         customLanguage: customLanguageInput.value.trim(),
+        ...typographyFromControls(),
       },
     });
     savedHint.classList.remove("hidden");
@@ -237,6 +289,21 @@ for (const input of [apiKeyInput, baseUrlInput]) {
   });
 }
 saveSettingsBtn.addEventListener("click", saveSettings);
+
+for (const input of [
+  readingFontPresetSelect,
+  readingFontSizeRange,
+  readingLineHeightRange,
+  readingLetterSpacingRange,
+]) {
+  input.addEventListener("input", applyTypographyPreview);
+  input.addEventListener("change", applyTypographyPreview);
+}
+resetTypographyBtn.addEventListener("click", () => {
+  setTypographyControls(TYPOGRAPHY_DEFAULTS);
+  typographyStatus.textContent = "已恢复默认预览；点击“保存设置”后才会写入。";
+  typographyStatus.className = "hint";
+});
 
 loadTheme();
 loadSettings();

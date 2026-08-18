@@ -18,6 +18,12 @@
   --font-body: "Stack Sans Text", "MiSans", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 
+  --reading-font-family: "Stack Sans Text", "MiSans", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --reading-font-size: 14px;
+  --reading-line-height: 1.7;
+  --reading-letter-spacing: 0em;
+
   --radius-sm: 10px;
   --radius-md: 14px;
   --shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -161,6 +167,63 @@ select {
 input:focus,
 select:focus {
   border-color: var(--accent);
+}
+
+.typography-controls {
+  display: grid;
+  gap: 12px;
+}
+
+.typography-control .field-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.typography-control output {
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.typography-control input[type="range"] {
+  display: block;
+  width: 100%;
+  margin: 5px 0 0;
+  accent-color: var(--accent);
+}
+
+.typography-preview {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-family: var(--reading-font-family);
+  font-size: var(--reading-font-size);
+  line-height: var(--reading-line-height);
+  letter-spacing: var(--reading-letter-spacing);
+}
+
+.typography-preview p {
+  margin: 0;
+}
+
+.typography-preview p + p {
+  margin-top: 6px;
+}
+
+.typography-preview-zh {
+  color: var(--ink);
+}
+
+.typography-preview-tr {
+  color: var(--ink-2);
+}
+
+.typography-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .icon-btn {
