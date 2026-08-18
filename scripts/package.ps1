@@ -5,28 +5,12 @@ $manifest = Get-Content (Join-Path $root "manifest.json") -Raw -Encoding UTF8 | 
 $version = $manifest.version
 $dist = Join-Path $root "dist"
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
-$out = Join-Path $dist "bili-digest-v$version.zip"
+$out = Join-Path $dist "bili-digest-plus-v$version.zip"
 if (Test-Path -LiteralPath $out) { Remove-Item -LiteralPath $out -Force }
-
 $items = @(
-  "manifest.json",
-  "background.js",
-  "content.js",
-  "sidepanel.html",
-  "sidepanel.css",
-  "sidepanel.js",
-  "options.html",
-  "options.css",
-  "options.js",
-  "lib",
-  "prompts",
-  "icons",
-  "fonts",
-  "README.md",
-  "LICENSE",
-  "PRIVACY.md",
-  "SECURITY.md"
+  "manifest.json", "background.js", "content.js", "sidepanel.html", "sidepanel.css", "sidepanel.js",
+  "options.html", "options.css", "options.js", "lib", "rules", "prompts", "icons", "fonts",
+  "README.md", "LICENSE", "PRIVACY.md", "SECURITY.md", "增强版使用说明.md"
 ) | ForEach-Object { Join-Path $root $_ }
-
 Compress-Archive -Path $items -DestinationPath $out -Force
 Write-Host "Packaged: $out"

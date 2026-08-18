@@ -4,9 +4,10 @@ Bili Digest 以「本地优先、最小数据外发」为原则。
 
 ## 数据保存在哪里
 
-- 所选 AI 服务商的 API Key、接口地址、模型名、目标语言等设置：保存在 Chrome 的 `chrome.storage.local`（本机）；
+- 所选 AI 服务商的 API Key、Groq API Key、接口地址、模型名、目标语言等设置：保存在 Chrome 的 `chrome.storage.local`（本机）；
 - 字幕、翻译、概览的缓存：保存在 `chrome.storage.local`；
 - 笔记：保存在 `chrome.storage.local`；
+- 本机字体列表：只有你在设置页点击「读取本机字体」后才会枚举。扩展优先使用 Chrome 扩展的 `chrome.fontSettings.getFontList()`，必要时回退 Local Font Access（`queryLocalFonts()`）；字体名称只用于当前扩展的字体选择，不上传、不写入第三方服务，也不会读取字体文件内容；
 - B站登录 cookie：扩展**从不读取、复制或保存**。浏览器在请求 B站域名时自动携带，这是浏览器的标准行为。
 
 ## 数据发到哪里
@@ -15,11 +16,15 @@ Bili Digest 以「本地优先、最小数据外发」为原则。
 | --- | --- | --- |
 | 视频 BV 号、cid | `api.bilibili.com` | 获取视频信息与字幕轨道列表 |
 | 字幕文件请求 | `aisubtitle.hdslb.com` | 下载字幕 JSON |
+| 无字幕视频的最低码率音轨 | B站媒体 CDN | 仅在你点击「AI 生成字幕」，或点击「生成 AI 概览」且缺少字幕时由浏览器下载 |
+| 无字幕视频的音频文件 | `api.groq.com` | 仅在你点击「AI 生成字幕」，或点击「生成 AI 概览」且缺少字幕时进行 Whisper 转写 |
 | 字幕文本 / 你选中的文本 / 笔记草稿 / 对话时的整段字幕与历史消息 | 你在设置中填写的 AI 接口地址（如 `api.openai.com` / `api.anthropic.com` / `api.deepseek.com`，或自定义端点） | 翻译、概览、逐句解释、笔记润色、视频问答 |
 
-扩展直接调用上述服务，不经过任何第三方中转服务器。
+扩展直接调用上述服务，不经过 Bili Digest 自有中转服务器。Groq 转写不再让 Groq 服务器直接抓取 B站 CDN，而是由浏览器先获取音频，再直接上传 Groq。
 
-「自定义」端点的地址由你自己填写（例如本机的 Ollama），扩展会把字幕或选中文本直接发往该地址，不会中转或另存。权限模型：manifest 只对 B站域名声明固定访问权限；AI 服务商域名在你填写并保存接口地址时，由 Chrome 弹出授权确认后按需授予（可随时在 `chrome://extensions` 的权限页撤销）。扩展不会扫描或访问其它网站。
+「自定义」端点的地址由你自己填写（例如本机的 Ollama），扩展会把字幕或选中文本直接发往该地址，不会中转或另存。为避免每个 AI 地址单独弹出授权框，并支持任意 OpenAI 兼容 HTTPS 端点，manifest 静态声明 HTTPS 主机访问权限，以及 `localhost` / `127.0.0.1` 本机 HTTP 权限。扩展只会访问 B站接口和你主动填写的 AI 接口地址，不会扫描其它网站。
+
+设置导出文件默认不包含 API Key；只有你主动勾选“导出时包含 API Key”时才会把密钥写入本地 JSON 文件。导入文件只恢复设置白名单字段，不导入字幕、笔记、对话或缓存。
 
 ## 不会发生什么
 

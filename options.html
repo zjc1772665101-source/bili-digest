@@ -61,8 +61,47 @@
       </section>
 
       <section class="group">
+        <h2>AI 字幕 · Groq</h2>
+        <label class="field-label" for="asrGroqApiKeyInput">Groq API Key</label>
+        <div class="key-row">
+          <input id="asrGroqApiKeyInput" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_…" />
+          <button id="toggleAsrKeyBtn" class="icon-btn" type="button" title="显示/隐藏">◉</button>
+        </div>
+        <label class="field-label" for="asrModelSelect">转写模型</label>
+        <select id="asrModelSelect">
+          <option value="whisper-large-v3">Whisper Large V3（高精度）</option>
+          <option value="whisper-large-v3-turbo">Whisper Large V3 Turbo（极速）</option>
+        </select>
+        <label class="field-label" for="asrLanguageSelect">主要语言</label>
+        <select id="asrLanguageSelect">
+          <option value="auto">自动检测</option>
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+          <option value="ja">日本語</option>
+        </select>
+        <div class="button-row">
+          <button id="testAsrBtn" class="ghost-btn" type="button">测试 Groq</button>
+        </div>
+        <div id="asrTestResult" class="hint"></div>
+        <p class="hint dim">无 B站字幕时，扩展先在浏览器中下载最低码率音轨，再直接上传 Groq，避免远端抓取 B站 CDN 时的 403。免费层单文件上限 25 MB。</p>
+      </section>
+
+      <section class="group">
         <h2>阅读外观</h2>
         <div class="typography-controls">
+          <div class="font-search-row">
+            <label class="field-label" for="fontSearchInput">字体搜索</label>
+            <input
+              id="fontSearchInput"
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="搜索字体名称（支持中英文，忽略空格和连字符）"
+              aria-describedby="fontSearchStatus"
+            />
+            <span id="fontSearchStatus" class="hint" role="status" aria-live="polite">正在加载字体预设…</span>
+            <p class="hint dim">内置字体预设固定且安全；如果本机未安装某个字体，浏览器会自动回退到同类字体。读取本机字体仅在点击后执行，不会上传字体列表。</p>
+          </div>
           <div class="typography-control">
             <label class="field-label" for="readingFontPresetSelect">字体</label>
             <select id="readingFontPresetSelect" aria-describedby="readingFontPresetHint">
@@ -70,12 +109,123 @@
               <option value="misans">MiSans</option>
               <option value="system">系统无衬线</option>
               <option value="serif">衬线阅读</option>
+              <option value="microsoftYaHei">微软雅黑</option>
+              <option value="dengxian">等线</option>
+              <option value="simsun">宋体</option>
+              <option value="kaiti">楷体</option>
+              <option value="fangsong">仿宋</option>
+              <option value="segoe">Segoe UI</option>
+              <option value="arial">Arial</option>
+              <option value="georgia">Georgia</option>
+              <option value="times">Times New Roman</option>
+              <option value="mono">等宽（系统）</option>
+              <option value="cascadia">Cascadia Code</option>
+              <option value="consolas">Consolas</option>
+              <option value="jetbrains">JetBrains Mono</option>
             </select>
-            <p id="readingFontPresetHint" class="hint dim">只应用于字幕、概览、笔记和对话正文。</p>
+            <p id="readingFontPresetHint" class="hint dim">五个功能区的共同回退字体；可在下方单独覆盖。</p>
           </div>
           <div class="typography-control">
+            <label class="field-label" for="interfaceFontPresetSelect">界面字体（含顶部标签栏）</label>
+            <select id="interfaceFontPresetSelect" aria-describedby="interfaceFontPresetHint">
+              <option value="default">默认（Stack Sans Text → MiSans）</option>
+              <option value="misans">MiSans</option>
+              <option value="system">系统无衬线</option>
+              <option value="serif">衬线阅读</option>
+              <option value="microsoftYaHei">微软雅黑</option>
+              <option value="dengxian">等线</option>
+              <option value="simsun">宋体</option>
+              <option value="kaiti">楷体</option>
+              <option value="fangsong">仿宋</option>
+              <option value="segoe">Segoe UI</option>
+              <option value="arial">Arial</option>
+              <option value="georgia">Georgia</option>
+              <option value="times">Times New Roman</option>
+              <option value="mono">等宽（系统）</option>
+              <option value="cascadia">Cascadia Code</option>
+              <option value="consolas">Consolas</option>
+              <option value="jetbrains">JetBrains Mono</option>
+            </select>
+            <p id="interfaceFontPresetHint" class="hint dim">应用于品牌、页头和未归属功能区的界面文字。</p>
+          </div>
+          <div class="typography-control">
+            <label class="field-label" for="codeFontPresetSelect">等宽字体</label>
+            <select id="codeFontPresetSelect" aria-describedby="codeFontPresetHint">
+              <option value="default">默认（Stack Sans Text → MiSans）</option>
+              <option value="misans">MiSans</option>
+              <option value="system">系统无衬线</option>
+              <option value="serif">衬线阅读</option>
+              <option value="microsoftYaHei">微软雅黑</option>
+              <option value="dengxian">等线</option>
+              <option value="simsun">宋体</option>
+              <option value="kaiti">楷体</option>
+              <option value="fangsong">仿宋</option>
+              <option value="segoe">Segoe UI</option>
+              <option value="arial">Arial</option>
+              <option value="georgia">Georgia</option>
+              <option value="times">Times New Roman</option>
+              <option value="mono">等宽（系统）</option>
+              <option value="cascadia">Cascadia Code</option>
+              <option value="consolas">Consolas</option>
+              <option value="jetbrains">JetBrains Mono</option>
+            </select>
+            <p id="codeFontPresetHint" class="hint dim">应用于时间戳、代码、BV 号等 mono 内容。</p>
+          </div>
+          <div class="button-row local-font-actions">
+            <button id="readLocalFontsBtn" class="ghost-btn" type="button">读取本机字体</button>
+            <span id="localFontsStatus" class="hint" role="status" aria-live="polite">点击后读取 Chrome 提供的系统字体列表，字体列表只在本机使用。</span>
+          </div>
+          <details class="typography-regions" open>
+            <summary><span>功能区独立排版</span><span class="hint dim">每个区域单独选择字体和 12–50px 字号</span></summary>
+            <div class="typography-region-grid">
+              <div class="typography-region-row">
+                <label class="field-label" for="transcriptFontPresetSelect">字幕</label>
+                <select id="transcriptFontPresetSelect" aria-label="字幕字体"></select>
+                <label class="sr-only" for="transcriptFontSizeRange">字幕字号</label>
+                <input id="transcriptFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="字幕字号" />
+                <output id="transcriptFontSizeOutput" for="transcriptFontSizeRange">14 px</output>
+              </div>
+              <div class="typography-region-row">
+                <label class="field-label" for="overviewFontPresetSelect">概览</label>
+                <select id="overviewFontPresetSelect" aria-label="概览字体"></select>
+                <label class="sr-only" for="overviewFontSizeRange">概览字号</label>
+                <input id="overviewFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="概览字号" />
+                <output id="overviewFontSizeOutput" for="overviewFontSizeRange">14 px</output>
+              </div>
+              <div class="typography-region-row">
+                <label class="field-label" for="notesFontPresetSelect">笔记</label>
+                <select id="notesFontPresetSelect" aria-label="笔记字体"></select>
+                <label class="sr-only" for="notesFontSizeRange">笔记字号</label>
+                <input id="notesFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="笔记字号" />
+                <output id="notesFontSizeOutput" for="notesFontSizeRange">14 px</output>
+              </div>
+              <div class="typography-region-row">
+                <label class="field-label" for="chatFontPresetSelect">对话</label>
+                <select id="chatFontPresetSelect" aria-label="对话字体"></select>
+                <label class="sr-only" for="chatFontSizeRange">对话字号</label>
+                <input id="chatFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="对话字号" />
+                <output id="chatFontSizeOutput" for="chatFontSizeRange">14 px</output>
+              </div>
+              <div class="typography-region-row">
+                <label class="field-label" for="settingsFontPresetSelect">设置</label>
+                <select id="settingsFontPresetSelect" aria-label="设置字体"></select>
+                <label class="sr-only" for="settingsFontSizeRange">设置字号</label>
+                <input id="settingsFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="设置字号" />
+                <output id="settingsFontSizeOutput" for="settingsFontSizeRange">14 px</output>
+              </div>
+            </div>
+          </details>
+          <label class="setting-switch" for="showMarkButtonCheckbox">
+            <input id="showMarkButtonCheckbox" type="checkbox" checked />
+            <span>显示视频页“标记”按钮</span>
+          </label>
+          <label class="setting-switch" for="showBrandTextCheckbox">
+            <input id="showBrandTextCheckbox" type="checkbox" checked />
+            <span>显示顶部品牌文字</span>
+          </label>
+          <div class="typography-control">
             <label class="field-label" for="readingFontSizeRange">字号 <output id="readingFontSizeOutput" for="readingFontSizeRange">14 px</output></label>
-            <input id="readingFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-describedby="readingFontSizeOutput" />
+            <input id="readingFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-describedby="readingFontSizeOutput" />
           </div>
           <div class="typography-control">
             <label class="field-label" for="readingLineHeightRange">行间距 <output id="readingLineHeightOutput" for="readingLineHeightRange">1.7</output></label>
@@ -85,9 +235,58 @@
             <label class="field-label" for="readingLetterSpacingRange">字间距 <output id="readingLetterSpacingOutput" for="readingLetterSpacingRange">0</output></label>
             <input id="readingLetterSpacingRange" type="range" min="0" max="0.08" step="0.01" value="0" aria-describedby="readingLetterSpacingOutput" />
           </div>
+          <details class="typography-advanced">
+            <summary>更多界面字号</summary>
+            <div class="typography-advanced-grid">
+              <div class="typography-control">
+                <label class="field-label" for="brandFontSizeRange">品牌字号 <output id="brandFontSizeOutput" for="brandFontSizeRange">12 px</output></label>
+                <input id="brandFontSizeRange" type="range" min="12" max="50" step="1" value="12" aria-describedby="brandFontSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="titleFontSizeRange">标题字号 <output id="titleFontSizeOutput" for="titleFontSizeRange">17 px</output></label>
+                <input id="titleFontSizeRange" type="range" min="12" max="50" step="1" value="17" aria-describedby="titleFontSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="navigationFontSizeRange">顶部标签栏字号（五项一致） <output id="navigationFontSizeOutput" for="navigationFontSizeRange">13 px</output></label>
+                <input id="navigationFontSizeRange" type="range" min="12" max="50" step="1" value="13" aria-describedby="navigationFontSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="controlFontSizeRange">控件字号 <output id="controlFontSizeOutput" for="controlFontSizeRange">13 px</output></label>
+                <input id="controlFontSizeRange" type="range" min="12" max="50" step="1" value="13" aria-describedby="controlFontSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="overviewButtonFontSizeRange">“生成 AI 概览”字号 <output id="overviewButtonFontSizeOutput" for="overviewButtonFontSizeRange">13 px</output></label>
+                <input id="overviewButtonFontSizeRange" type="range" min="12" max="50" step="1" value="13" aria-describedby="overviewButtonFontSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="videoActionButtonSizeRange">视频页方块按钮尺寸 <output id="videoActionButtonSizeOutput" for="videoActionButtonSizeRange">44 px</output></label>
+                <input id="videoActionButtonSizeRange" type="range" min="36" max="80" step="2" value="44" aria-describedby="videoActionButtonSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="metaFontSizeRange">辅助字号 <output id="metaFontSizeOutput" for="metaFontSizeRange">12 px</output></label>
+                <input id="metaFontSizeRange" type="range" min="12" max="50" step="1" value="12" aria-describedby="metaFontSizeOutput" />
+              </div>
+              <div class="typography-control">
+                <label class="field-label" for="codeFontSizeRange">代码字号 <output id="codeFontSizeOutput" for="codeFontSizeRange">12 px</output></label>
+                <input id="codeFontSizeRange" type="range" min="12" max="50" step="1" value="12" aria-describedby="codeFontSizeOutput" />
+              </div>
+            </div>
+          </details>
           <div class="typography-preview" aria-label="阅读排版预览">
+            <p class="typography-preview-brand">BILI DIGEST · 品牌预览</p>
+            <p class="typography-preview-title">视频标题预览：让每个区域都清晰可读</p>
+            <p class="typography-preview-nav"><span>字幕</span><span>概览</span><span>笔记</span><span>对话</span><span>设置</span></p>
+            <div class="typography-preview-regions" aria-label="功能区独立排版预览">
+              <div class="typography-preview-region" data-region="transcript"><strong>字幕</strong><span>原文与双语字幕示例</span></div>
+              <div class="typography-preview-region" data-region="overview"><strong>概览</strong><span>章节与重点内容示例</span><button class="typography-preview-overview-button" type="button" tabindex="-1">生成 AI 概览</button></div>
+              <div class="typography-preview-region" data-region="notes"><strong>笔记</strong><span>带时间戳的学习笔记</span></div>
+              <div class="typography-preview-region" data-region="chat"><strong>对话</strong><span>视频问答消息示例</span></div>
+              <div class="typography-preview-region" data-region="settings"><strong>设置</strong><span>按钮、输入框与选择器示例</span></div>
+            </div>
             <p class="typography-preview-zh">中文预览：让字幕、概览与笔记更适合长时间阅读。</p>
             <p class="typography-preview-tr">Latin / English preview 123456</p>
+            <p class="typography-preview-controls"><button type="button" tabindex="-1">按钮预览</button> <span class="typography-preview-meta">辅助文字 · 00:12</span> <code>const mono = true;</code></p>
+            <p class="video-button-preview" aria-label="视频页按钮预览"><button type="button" tabindex="-1">精读</button><button type="button" tabindex="-1">标记</button></p>
           </div>
           <div class="button-row typography-actions">
             <button id="resetTypographyBtn" class="ghost-btn" type="button">恢复默认</button>
@@ -106,6 +305,21 @@
           <option value="custom">自定义…</option>
         </select>
         <input id="customLanguageInput" class="hidden" placeholder="输入目标语言，如 Français" spellcheck="false" />
+      </section>
+
+      <section class="group">
+        <h2>设置备份</h2>
+        <p class="hint dim">导出和导入 AI、翻译、排版、按钮及主题设置；不会包含字幕、笔记、对话或缓存。</p>
+        <label class="setting-switch" for="includeApiKeyExportCheckbox">
+          <input id="includeApiKeyExportCheckbox" type="checkbox" />
+          <span>导出时包含 API Key（敏感信息）</span>
+        </label>
+        <div class="button-row">
+          <button id="exportSettingsBtn" class="ghost-btn" type="button">导出设置</button>
+          <button id="importSettingsBtn" class="ghost-btn" type="button">导入设置</button>
+          <input id="settingsImportFile" class="hidden" type="file" accept="application/json,.json" />
+        </div>
+        <p id="settingsTransferStatus" class="hint" role="status" aria-live="polite"></p>
       </section>
 
       <section class="group">
