@@ -295,15 +295,17 @@ test("本机字体权限仅在显式 requestLocalFontList 时调用且兼容回�
 
 test("Local Font Access 成功时优先同步调用并映射 family/fullName", async () => {
   const calls = [];
-  const result = await requestLocalFontList({}, {
+  const localFontApi = {
     queryLocalFonts() {
+      assert.equal(this, localFontApi);
       calls.push("query");
       return Promise.resolve([
         { family: "Arial", fullName: "Arial Regular" },
         { family: "思源黑体", fullName: "思源黑体 Bold" },
       ]);
     },
-  });
+  };
+  const result = await requestLocalFontList({}, localFontApi);
   assert.deepEqual(calls, ["query"]);
   assert.equal(result.granted, true);
   assert.deepEqual(result.fonts[0], { fontId: "Arial", displayName: "Arial Regular" });
