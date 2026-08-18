@@ -1,16 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  KNOWN_PROVIDER_HOSTS,
   parseOrigin,
-  isStaticBiliOrigin,
-  hostPattern,
   ensureHostPermission,
 } from "../lib/host-permissions.js";
 
-test("parseOrigin 解析常见 Base URL", () => {
+test("parseOrigin 解析 v0.4.2 支持的 Base URL", () => {
   assert.equal(parseOrigin("https://api.deepseek.com"), "https://api.deepseek.com");
   assert.equal(parseOrigin("https://api.openai.com/v1/"), "https://api.openai.com");
+  assert.equal(parseOrigin("https://api.groq.com/openai/v1"), "https://api.groq.com");
   assert.equal(parseOrigin("http://localhost:11434/v1"), "http://localhost:11434");
   assert.equal(parseOrigin("http://127.0.0.1:11434/v1"), "http://127.0.0.1:11434");
   assert.equal(parseOrigin("http://[::1]:11434/v1"), "http://[::1]:11434");
@@ -22,40 +20,14 @@ test("parseOrigin 解析常见 Base URL", () => {
   assert.equal(parseOrigin("https://"), null);
 });
 
-test("isStaticBiliOrigin 识别 B站静态权限域", () => {
-  assert.equal(isStaticBiliOrigin("https://www.bilibili.com"), true);
-  assert.equal(isStaticBiliOrigin("https://api.bilibili.com"), true);
-  assert.equal(isStaticBiliOrigin("https://aisubtitle.hdslb.com"), true);
-  assert.equal(isStaticBiliOrigin("https://hdslb.com"), false);
-  assert.equal(isStaticBiliOrigin("https://foo.hdslb.com"), false);
-  assert.equal(isStaticBiliOrigin("http://aisubtitle.hdslb.com"), false);
-  assert.equal(isStaticBiliOrigin("https://api.deepseek.com"), false);
-  assert.equal(isStaticBiliOrigin("https://bilibili.com.evil.com"), false);
-  assert.equal(isStaticBiliOrigin(null), false);
-});
-
-test("hostPattern 生成 match pattern", () => {
-  assert.equal(
-    hostPattern("https://api.deepseek.com"),
-    "https://api.deepseek.com/*",
-  );
-  assert.equal(
-    hostPattern("http://localhost:11434/v1"),
-    "http://localhost:11434/*",
-  );
-  assert.equal(hostPattern("http://example.com/v1"), null);
-  assert.equal(hostPattern(""), null);
-});
-
-test("已知供应商域名与 manifest 声明一致（改动需同步）", () => {
-  assert.ok(KNOWN_PROVIDER_HOSTS.includes("api.deepseek.com"));
-  assert.ok(KNOWN_PROVIDER_HOSTS.includes("api.anthropic.com"));
-  assert.ok(KNOWN_PROVIDER_HOSTS.includes("dashscope.aliyuncs.com"));
-});
-
-test("ensureHostPermission 在非扩展环境直接放行", async () => {
-  // node 测试环境没有 chrome.permissions，应放行而不是抛错
+test("ensureHostPermission 在 Node 环境按 v0.4.2 广域 HTTPS 策略放行", async () => {
+  // v0.4.2 manifest 固定声明 https://*/*，无需再维护供应商白名单。
   assert.equal(await ensureHostPermission("https://api.deepseek.com"), true);
-  assert.equal(await ensureHostPermission("http://example.com"), false);
+  assert.equal(await ensureHostPermission("https://api.groq.com/openai/v1"), true);
+  assert.equal(await ensureHostPermission("https://example.com/custom/v1"), true);
+  assert.equal(await ensureHostPermission("http://localhost:11434/v1"), true);
+  assert.equal(await ensureHostPermission("http://127.0.0.1:11434/v1"), true);
+  assert.equal(await ensureHostPermission("http://[::1]:11434/v1"), true);
+  assert.equal(await ensureHostPermission("http://example.com/v1"), false);
   assert.equal(await ensureHostPermission(""), true);
 });
