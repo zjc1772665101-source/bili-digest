@@ -1,10 +1,17 @@
 {
   "manifest_version": 3,
-  "name": "Bili Digest 哔哩精读",
-  "version": "0.3.7",
+  "name": "Bili Digest Plus 哔哩精读本地增强版",
+  "version": "0.5.0",
   "minimum_chrome_version": "116",
-  "description": "把 B站视频变成学习资料：字幕、双语对照、AI 概览、视频问答与带时间戳的笔记。",
-  "permissions": ["sidePanel", "storage", "tabs", "clipboardWrite"],
+  "description": "把 B站视频变成学习资料：原生字幕优先，无字幕时可用 Groq Whisper 生成时间轴字幕。",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "tabs",
+    "clipboardWrite",
+    "fontSettings",
+    "declarativeNetRequestWithHostAccess"
+  ],
   "host_permissions": [
     "https://*/*",
     "http://localhost/*",
@@ -31,8 +38,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.bilibili.com/video/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://www.bilibili.com/video/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -40,5 +51,14 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "bili_media_headers",
+        "enabled": true,
+        "path": "rules/bili-media.json"
+      }
+    ]
   }
 }

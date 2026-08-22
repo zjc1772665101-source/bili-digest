@@ -181,20 +181,30 @@ function createDigestButton() {
   applyVideoActionButtonStyle(button);
 
   button.addEventListener("mouseenter", () => {
-    button.style.background = "#fff";
-    button.style.color = "#000";
+    button.style.background = "#00aeec";
+    button.style.borderColor = "rgba(255, 255, 255, 0.6)";
+    button.style.boxShadow = "0 6px 20px rgba(0, 174, 236, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5)";
+    button.style.transform = "translateY(-1px) scale(1.04)";
   });
   button.addEventListener("mouseleave", () => {
-    button.style.background = "#000";
-    button.style.color = "#fff";
+    button.style.background = "rgba(24, 25, 28, 0.85)";
+    button.style.borderColor = "rgba(255, 255, 255, 0.28)";
+    button.style.boxShadow = "0 4px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35)";
+    button.style.transform = "translateY(0) scale(1)";
+  });
+  button.addEventListener("mousedown", () => {
+    button.style.transform = "scale(0.94)";
+  });
+  button.addEventListener("mouseup", () => {
+    button.style.transform = "translateY(-1px) scale(1.04)";
   });
   button.addEventListener("click", async (event) => {
     event.preventDefault();
     event.stopPropagation();
     try {
       const result = await chrome.runtime.sendMessage({ action: "openSidePanel" });
-      if (result && result.opened === false) {
-        showToast(result.hint || "请点击浏览器工具栏上的 Bili Digest 图标");
+      if (result && (result.opened === false || result.success === false)) {
+        showToast(result.hint || "请点击浏览器工具栏上的 Bili Digest 图标打开侧栏");
       }
     } catch (error) {
       console.error("[BiliDigest] 打开侧边栏失败", error);
@@ -214,7 +224,8 @@ function normalizeVideoActionButtonSize(value) {
 function applyVideoActionButtonStyle(button) {
   if (!button) return;
   const size = normalizeVideoActionButtonSize(videoActionButtonSize);
-  const fontSize = Math.max(12, Math.round(size * 0.3));
+  const fontSize = Math.max(12, Math.round(size * 0.32));
+  const borderRadius = Math.round(size * 0.25);
   button.style.cssText = `
     display: inline-flex;
     align-items: center;
@@ -222,18 +233,22 @@ function applyVideoActionButtonStyle(button) {
     width: ${size}px;
     height: ${size}px;
     padding: 0;
-    border: 1px solid #fff;
-    border-radius: 0;
-    background: #000;
-    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: ${borderRadius}px;
+    background: rgba(24, 25, 28, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #ffffff;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
     font-size: ${fontSize}px;
     font-weight: 650;
     line-height: 1;
     cursor: pointer;
     white-space: nowrap;
     flex: 0 0 auto;
-    box-shadow: none;
-    transition: background 0.12s ease, color 0.12s ease;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
   `;
 }
 
@@ -341,12 +356,22 @@ function ensureNoteButtonHost() {
   button.textContent = "标记";
   applyVideoActionButtonStyle(button);
   button.addEventListener("mouseenter", () => {
-    button.style.background = "#fff";
-    button.style.color = "#000";
+    button.style.background = "#fb7299";
+    button.style.borderColor = "rgba(255, 255, 255, 0.6)";
+    button.style.boxShadow = "0 6px 20px rgba(251, 114, 153, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5)";
+    button.style.transform = "translateY(-1px) scale(1.04)";
   });
   button.addEventListener("mouseleave", () => {
-    button.style.background = "#000";
-    button.style.color = "#fff";
+    button.style.background = "rgba(24, 25, 28, 0.85)";
+    button.style.borderColor = "rgba(255, 255, 255, 0.28)";
+    button.style.boxShadow = "0 4px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35)";
+    button.style.transform = "translateY(0) scale(1)";
+  });
+  button.addEventListener("mousedown", () => {
+    button.style.transform = "scale(0.94)";
+  });
+  button.addEventListener("mouseup", () => {
+    button.style.transform = "translateY(-1px) scale(1.04)";
   });
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -515,9 +540,15 @@ function applyVideoActionButtonSize(value) {
 
 async function loadContentSettings() {
   try {
-    const result = await chrome.storage.local.get("settings");
-    applyShowMarkButton(result?.settings?.showMarkButton);
-    applyVideoActionButtonSize(result?.settings?.videoActionButtonSize);
+    const localData = await chrome.storage?.local?.get?.("contentDisplayConfig").catch(() => null);
+    if (localData?.contentDisplayConfig) {
+      applyShowMarkButton(localData.contentDisplayConfig.showMarkButton);
+      applyVideoActionButtonSize(localData.contentDisplayConfig.videoActionButtonSize);
+      return;
+    }
+    const result = await chrome.runtime.sendMessage({ action: "getContentSettings" });
+    applyShowMarkButton(result?.showMarkButton);
+    applyVideoActionButtonSize(result?.videoActionButtonSize);
   } catch {
     applyShowMarkButton(true);
     applyVideoActionButtonSize(44);
@@ -567,9 +598,12 @@ function init() {
   document.addEventListener("fullscreenchange", positionNoteButton);
   document.addEventListener("webkitfullscreenchange", positionNoteButton);
   chrome.storage?.onChanged?.addListener((changes, areaName) => {
-    if (areaName !== "local" || !changes.settings) return;
-    applyShowMarkButton(changes.settings.newValue?.showMarkButton);
-    applyVideoActionButtonSize(changes.settings.newValue?.videoActionButtonSize);
+    if (areaName !== "local" || !changes.contentDisplayConfig) return;
+    const val = changes.contentDisplayConfig.newValue;
+    if (val) {
+      applyShowMarkButton(val.showMarkButton);
+      applyVideoActionButtonSize(val.videoActionButtonSize);
+    }
   });
   watchNavigation();
   updateButton();

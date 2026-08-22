@@ -1,14 +1,20 @@
 {
-  "name": "bili-digest",
-  "version": "0.3.7",
-  "private": true,
+  "name": "bili-digest-plus-ui",
+  "version": "0.5.0",
+  "description": "B站视频学习 Chrome 扩展本地增强版",
   "type": "module",
-  "description": "把 B站视频变成学习资料的 Chrome 扩展",
-  "license": "MIT",
   "scripts": {
-    "test": "node --test \"tests/*.test.js\"",
-    "check": "node scripts/check.js",
-    "package": "powershell -ExecutionPolicy Bypass -File scripts/package.ps1",
-    "verify-bili": "node scripts/verify-bili.mjs"
-  }
+    "test": "node test/run-all.js",
+    "check": "node test/check-syntax.js",
+    "package": "node test/package-zip.js",
+    "verify-bili": "node test/verify-bili.js"
+  },
+  "keywords": [
+    "bilibili",
+    "chrome-extension",
+    "ai",
+    "whisper",
+    "digest"
+  ],
+  "license": "MIT"
 }

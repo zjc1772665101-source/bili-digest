@@ -2,8 +2,8 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta name="color-scheme" content="light" />
-    <title>Bili Digest</title>
+    <meta name="color-scheme" content="light dark" />
+    <title>Bili Digest Plus 本地增强版</title>
     <link rel="stylesheet" href="fonts/stack-sans/stack-sans.css" />
     <link rel="stylesheet" href="fonts/misans/MiSans-Regular.min.css" />
     <link rel="stylesheet" href="fonts/misans/MiSans-Medium.min.css" />
@@ -15,422 +15,549 @@
       <div class="brand-row">
         <span class="brand-name">BILI DIGEST</span>
         <span class="brand-sub">哔哩精读</span>
-        <button id="themeToggleBtn" class="theme-toggle" type="button" title="切换日间 / 夜间">☾</button>
+        <span class="version-tag">v0.5.0</span>
+        <div class="brand-actions">
+          <button id="historyBtn" class="history-toggle-btn" type="button" title="历史视频切换" aria-label="查看历史视频">历史</button>
+          <button id="themeToggleBtn" class="theme-toggle" type="button" title="切换日间 / 夜间" aria-label="切换日间 / 夜间主题">☾</button>
+        </div>
       </div>
       <h1 id="videoTitle" class="video-title">尚未检测到视频</h1>
       <div id="videoMeta" class="video-meta"></div>
     </header>
 
-    <nav class="tabs" role="tablist">
-      <button class="tab active" data-tab="transcript" role="tab">字幕</button>
-      <button class="tab" data-tab="overview" role="tab">概览</button>
-      <button class="tab" data-tab="notes" role="tab">笔记</button>
-      <button class="tab" data-tab="chat" role="tab">对话</button>
-      <button class="tab" data-tab="settings" role="tab">设置</button>
+    <div id="historyBanner" class="history-banner hidden" role="region" aria-label="历史视频浏览提示">
+      <div class="history-banner-info">
+        <span class="history-banner-tag">历史浏览</span>
+        <span id="historyBannerTitle" class="history-banner-title"></span>
+      </div>
+      <button id="exitHistoryBtn" class="history-banner-btn" type="button" title="回到当前正在播放的视频">回到当前播放 ➔</button>
+    </div>
+
+    <nav class="tabs" role="tablist" aria-label="主要功能导航">
+      <button id="tab-btn-transcript" class="tab active" data-tab="transcript" role="tab" aria-selected="true" aria-controls="tab-transcript" tabindex="0">字幕</button>
+      <button id="tab-btn-overview" class="tab" data-tab="overview" role="tab" aria-selected="false" aria-controls="tab-overview" tabindex="-1">概览</button>
+      <button id="tab-btn-chat" class="tab" data-tab="chat" role="tab" aria-selected="false" aria-controls="tab-chat" tabindex="-1">对话</button>
+      <button id="tab-btn-notes" class="tab" data-tab="notes" role="tab" aria-selected="false" aria-controls="tab-notes" tabindex="-1">笔记</button>
+      <button id="tab-btn-settings" class="tab" data-tab="settings" role="tab" aria-selected="false" aria-controls="tab-settings" tabindex="-1">设置</button>
     </nav>
 
     <main class="content">
-      <section id="tab-transcript" class="panel active">
+      <!-- 1. 字幕面板 -->
+      <section id="tab-transcript" class="panel active" role="tabpanel" aria-labelledby="tab-btn-transcript">
         <div class="panel-toolbar">
           <div class="toolbar-left">
             <select id="partSelect" class="part-select hidden" aria-label="选择分 P"></select>
-            <div class="mode-switch" role="tablist" aria-label="字幕视图">
-              <button class="mode active" data-mode="original" role="tab">原文</button>
-              <button class="mode" data-mode="bilingual" role="tab">双语</button>
+            <div class="mode-switch" role="tablist" aria-label="字幕视图模式">
+              <button class="mode active" data-mode="original" role="tab" aria-selected="true" tabindex="0">原文</button>
+              <button class="mode" data-mode="bilingual" role="tab" aria-selected="false" tabindex="-1">双语</button>
             </div>
-            <button id="hideOriginalBtn" class="ghost-btn hidden">隐藏原文</button>
+            <button id="hideOriginalBtn" class="ghost-btn hidden" type="button">隐藏原文</button>
             <select id="trackSelect" class="track-select hidden" aria-label="选择字幕轨道"></select>
           </div>
           <div class="toolbar-actions">
-            <button id="translateBtn" class="ghost-btn" title="翻译整个视频（结果会缓存）">翻译</button>
-            <button id="copyTranscriptBtn" class="icon-btn" title="复制当前视图字幕" aria-label="复制字幕">⧉</button>
-            <button id="exportBtn" class="icon-btn" title="导出资料（字幕、笔记，不含 AI 概览）" aria-label="导出资料">↓</button>
-            <button id="exportWithOverviewBtn" class="icon-btn" title="导出含 AI 概览的资料（需先在概览页生成）" aria-label="导出含 AI 概览">⇩</button>
-            <button id="refreshBtn" class="icon-btn" title="重新加载字幕" aria-label="重新加载字幕">↻</button>
+            <button id="searchToggleBtn" class="icon-btn" title="搜索字幕 (Ctrl+F 或 /)" aria-label="搜索字幕" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></button>
+            <button id="autoFollowBtn" class="ghost-btn active" title="自动跟随播放滚动" aria-label="自动跟随" type="button">跟随</button>
+            <button id="translateBtn" class="ghost-btn" title="翻译整个视频（结果会缓存）" type="button">翻译</button>
+            <button id="copyTranscriptBtn" class="icon-btn" title="复制当前视图字幕" aria-label="复制字幕" type="button">⧉</button>
+            <button id="exportBtn" class="icon-btn" title="导出资料（字幕、笔记，不含 AI 概览）" aria-label="导出资料" type="button">↓</button>
+            <button id="exportWithOverviewBtn" class="icon-btn" title="导出含 AI 概览的资料（需先在概览页生成）" aria-label="导出含 AI 概览" type="button">⇩</button>
+            <button id="refreshBtn" class="icon-btn" title="重新加载字幕" aria-label="重新加载字幕" type="button">↻</button>
           </div>
         </div>
-        <div id="transcriptStatus" class="status-line"></div>
+
+        <div id="transcriptSearchContainer" class="transcript-search-bar hidden">
+          <div class="search-input-wrap">
+            <input
+              id="transcriptSearchInput"
+              type="search"
+              placeholder="搜索字幕 (支持中英双语，Enter 查找)..."
+              autocomplete="off"
+              spellcheck="false"
+              aria-label="搜索字幕"
+            />
+            <span id="transcriptMatchCount" class="search-match-count">0 / 0</span>
+          </div>
+          <div class="search-nav-actions">
+            <button id="searchPrevBtn" class="icon-btn" title="上一个匹配 (Shift+Enter)" aria-label="上一个" type="button">▲</button>
+            <button id="searchNextBtn" class="icon-btn" title="下一个匹配 (Enter)" aria-label="下一个" type="button">▼</button>
+            <button id="searchCloseBtn" class="icon-btn" title="关闭搜索 (Esc)" aria-label="关闭搜索" type="button">✕</button>
+          </div>
+        </div>
+
+        <div id="transcriptStatus" class="status-line" role="status" aria-live="polite"></div>
         <div id="translationTrack" class="progress-track hidden">
           <div id="translationFill" class="progress-fill"></div>
         </div>
-        <div id="segments" class="segments"></div>
+
+        <div class="segments-scroll-wrapper">
+          <div id="segments" class="segments" tabindex="0" aria-label="字幕列表"></div>
+          <button id="resumeFollowPill" class="resume-follow-pill hidden" type="button" title="点击回到正在播放的字幕">
+            恢复跟随播放
+          </button>
+        </div>
       </section>
 
-      <section id="tab-overview" class="panel">
+      <!-- 2. 概览面板 -->
+      <section id="tab-overview" class="panel" role="tabpanel" aria-labelledby="tab-btn-overview">
         <div class="panel-toolbar">
-          <button id="generateOverviewBtn" class="primary-btn">生成 AI 概览</button>
+          <button id="generateOverviewBtn" class="primary-btn" type="button">生成 AI 概览</button>
           <div class="toolbar-actions">
-            <button id="exportOverviewBtn" class="icon-btn" title="导出概览" aria-label="导出概览">↓</button>
-            <button id="regenerateOverviewBtn" class="icon-btn" title="重新生成" aria-label="重新生成">↻</button>
+            <button id="exportOverviewBtn" class="icon-btn" title="导出概览" aria-label="导出概览" type="button">↓</button>
+            <button id="regenerateOverviewBtn" class="icon-btn" title="重新生成" aria-label="重新生成" type="button">↻</button>
           </div>
         </div>
-        <div id="overviewStatus" class="status-line"></div>
+        <div id="overviewStatus" class="status-line" role="status" aria-live="polite"></div>
+        <div id="overviewSkeleton" class="overview-skeleton hidden" aria-hidden="true">
+          <div class="skeleton-stage-pill" id="overviewSkeletonStatus">准备字幕中…</div>
+          <div class="skeleton-block skeleton-summary">
+            <div class="skeleton-line full"></div>
+            <div class="skeleton-line middle"></div>
+            <div class="skeleton-line short"></div>
+          </div>
+          <div class="skeleton-block skeleton-chapters">
+            <div class="skeleton-line short"></div>
+            <div class="skeleton-line full"></div>
+            <div class="skeleton-line full"></div>
+          </div>
+        </div>
         <div id="overviewContent" class="overview"></div>
       </section>
 
-      <section id="tab-notes" class="panel">
-        <div id="noteComposer" class="note-composer">
-          <textarea id="noteText" rows="3" placeholder="记下此刻的想法，保存后会带上时间戳…"></textarea>
-          <div class="note-composer-row">
-            <span id="noteTimeChip" class="chip">--:--</span>
-            <div class="note-composer-actions">
-              <button id="polishNoteBtn" class="ghost-btn">AI 润色</button>
-              <button id="saveNoteBtn" class="primary-btn">保存笔记</button>
-            </div>
-          </div>
-        </div>
-        <div class="notes-toolbar">
-          <div class="mode-switch notes-scope">
-            <button class="mode active" data-scope="current">本视频</button>
-            <button class="mode" data-scope="all">全部视频</button>
-          </div>
-          <button id="exportNotesBtn" class="ghost-btn" type="button" title="导出当前视图的笔记">导出笔记</button>
-        </div>
-        <div id="notesStatus" class="status-line"></div>
-        <div id="notesList" class="notes"></div>
-      </section>
-
-      <section id="tab-chat" class="panel">
+      <!-- 3. 对话面板 -->
+      <section id="tab-chat" class="panel" role="tabpanel" aria-labelledby="tab-btn-chat">
         <div class="panel-toolbar">
           <span class="chat-title">视频问答</span>
           <div class="toolbar-actions">
-            <button id="regenerateChatBtn" class="icon-btn" title="重新回答上一条" aria-label="重新回答">↻</button>
-            <button id="exportChatBtn" class="ghost-btn">导出对话</button>
-            <button id="clearChatBtn" class="ghost-btn">重置对话</button>
+            <button id="regenerateChatBtn" class="icon-btn" title="重新回答上一条" aria-label="重新回答上一条" type="button">↻</button>
+            <button id="exportChatBtn" class="ghost-btn" type="button">导出对话</button>
+            <button id="clearChatBtn" class="ghost-btn" type="button">重置对话</button>
           </div>
         </div>
-        <div id="chatStatus" class="status-line"></div>
-        <div id="chatMessages" class="chat-messages"></div>
+        <div id="chatStatus" class="status-line" role="status" aria-live="polite"></div>
+        <div id="chatMessages" class="chat-messages" aria-label="对话记录"></div>
+        <div id="chatQuickPrompts" class="chat-quick-prompts hidden">
+          <span class="quick-prompts-label">快捷提问：</span>
+          <button class="prompt-chip" type="button" data-prompt="总结本视频的核心内容与主要结论">总结本视频</button>
+          <button class="prompt-chip" type="button" data-prompt="列出视频中的核心论点与关键细节">列出关键论点</button>
+          <button class="prompt-chip" type="button" data-prompt="基于视频内容生成 3 道复习题并给出答案">生成复习题</button>
+          <button class="prompt-chip" type="button" data-prompt="解释当前视频片段在讲什么背景与概念">解释当前片段</button>
+        </div>
         <div class="chat-composer">
           <textarea
             id="chatInput"
             rows="2"
-            placeholder="基于这段视频的字幕，问我任何问题…"
+            placeholder="基于视频字幕提问 (Enter 发送 / Shift+Enter 换行)…"
             spellcheck="false"
+            aria-label="提问输入框"
           ></textarea>
           <div class="chat-composer-row">
-            <button id="sendChatBtn" class="primary-btn">发送</button>
+            <span class="chat-keyboard-hint dim">Enter 发送 / Shift+Enter 换行</span>
+            <button id="sendChatBtn" class="primary-btn" type="button">发送</button>
           </div>
         </div>
       </section>
 
-      <section id="tab-settings" class="panel">
-        <div class="settings-group">
-          <h2 class="group-title">AI 接口（OpenAI 兼容）</h2>
-          <label class="field-label" for="apiKeyInput">API Key</label>
-          <div class="key-row">
-            <input
-              id="apiKeyInput"
-              type="password"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="sk-…"
-            />
-            <button id="toggleKeyBtn" class="icon-btn" title="显示/隐藏" aria-label="显示或隐藏密钥">◉</button>
+      <!-- 4. 笔记面板 -->
+      <section id="tab-notes" class="panel" role="tabpanel" aria-labelledby="tab-btn-notes">
+        <div id="noteComposer" class="note-composer">
+          <textarea id="noteText" rows="3" placeholder="记下此刻的想法，保存后会带上时间戳… (Ctrl+Enter 快捷保存)" aria-label="笔记内容"></textarea>
+          <div class="note-composer-row">
+            <div class="note-composer-meta">
+              <span id="noteTimeChip" class="chip">--:--</span>
+              <span id="noteCharCount" class="note-char-count">0 字</span>
+            </div>
+            <div class="note-composer-actions">
+              <button id="polishNoteBtn" class="ghost-btn" type="button">AI 润色</button>
+              <button id="saveNoteBtn" class="primary-btn" type="button">保存笔记</button>
+            </div>
           </div>
-          <label class="field-label" for="baseUrlInput">接口地址（Base URL）</label>
-          <input
-            id="baseUrlInput"
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="https://…"
-          />
-          <label class="field-label" for="modelSelect">模型</label>
-          <select id="modelSelect">
-            <option value="__custom__">自定义…</option>
-          </select>
-          <input
-            id="modelInput"
-            type="text"
-            class="hidden"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="手动输入模型名称"
-          />
-          <label class="field-label" for="thinkingLevelSelect">思考等级</label>
-          <select id="thinkingLevelSelect">
-            <option value="off">关闭思考（快速，省 token）</option>
-            <option value="low">低</option>
-            <option value="medium">中</option>
-            <option value="high">高（更强，更慢更贵）</option>
-            <option value="default">跟随服务默认</option>
-          </select>
-          <p class="hint dim">
-            DeepSeek 支持思考开关与强度；其他 OpenAI 兼容端点传 reasoning_effort；Anthropic 兼容端点暂不附加此参数。
-          </p>
-          <div class="button-row">
-            <button id="listModelsBtn" class="ghost-btn" type="button">拉取模型</button>
-            <button id="testKeyBtn" class="ghost-btn">测试连接</button>
-          </div>
-          <div id="modelListHint" class="hint hidden"></div>
-          <div id="keyTestResult" class="hint"></div>
         </div>
-
-        <div class="settings-group">
-          <h2 class="group-title">阅读外观</h2>
-          <div class="typography-controls">
-          <div class="font-search-row">
-            <label class="field-label" for="fontSearchInput">字体搜索</label>
+        <div class="notes-toolbar">
+          <div class="notes-toolbar-top">
+            <div class="mode-switch notes-scope" role="tablist" aria-label="笔记范围">
+              <button class="mode active" data-scope="current" role="tab" aria-selected="true" tabindex="0">当前分P</button>
+              <button class="mode" data-scope="video_all" role="tab" aria-selected="false" tabindex="-1">本视频全P</button>
+              <button class="mode" data-scope="all" role="tab" aria-selected="false" tabindex="-1">全部视频</button>
+            </div>
+            <div class="notes-actions">
+              <select id="notesSortSelect" class="notes-sort-select" aria-label="笔记排序">
+                <option value="timestamp">按时间戳</option>
+                <option value="newest">最新优先</option>
+                <option value="oldest">最早优先</option>
+              </select>
+              <button id="exportNotesBtn" class="ghost-btn" type="button" title="导出当前视图的笔记">导出</button>
+            </div>
+          </div>
+          <div class="notes-search-row">
             <input
-              id="fontSearchInput"
+              id="notesSearchInput"
               type="search"
+              placeholder="搜索笔记正文 / 视频标题 / 作者..."
               autocomplete="off"
               spellcheck="false"
-              placeholder="搜索字体名称（支持中英文，忽略空格和连字符）"
-              aria-describedby="fontSearchStatus"
+              aria-label="搜索笔记"
             />
-            <span id="fontSearchStatus" class="hint" role="status" aria-live="polite">正在加载字体预设…</span>
-            <p class="hint dim">内置字体预设固定且安全；如果本机未安装某个字体，浏览器会自动回退到同类字体。读取本机字体仅在点击后申请权限。</p>
           </div>
-          <div class="typography-control">
-            <label class="field-label" for="readingFontPresetSelect">字体</label>
-            <select id="readingFontPresetSelect" aria-describedby="readingFontPresetHint">
-              <option value="default">默认（Stack Sans Text → MiSans）</option>
-              <option value="misans">MiSans</option>
-              <option value="system">系统无衬线</option>
-              <option value="serif">衬线阅读</option>
-              <option value="microsoftYaHei">微软雅黑</option>
-              <option value="dengxian">等线</option>
-              <option value="simsun">宋体</option>
-              <option value="kaiti">楷体</option>
-              <option value="fangsong">仿宋</option>
-              <option value="segoe">Segoe UI</option>
-              <option value="arial">Arial</option>
-              <option value="georgia">Georgia</option>
-              <option value="times">Times New Roman</option>
-              <option value="mono">等宽（系统）</option>
-              <option value="cascadia">Cascadia Code</option>
-              <option value="consolas">Consolas</option>
-              <option value="jetbrains">JetBrains Mono</option>
-            </select>
-            <p id="readingFontPresetHint" class="hint dim">五个功能区的共同回退字体；可在下方单独覆盖。</p>
-          </div>
-          <div class="typography-control">
-            <label class="field-label" for="interfaceFontPresetSelect">界面字体（含顶部标签栏）</label>
-            <select id="interfaceFontPresetSelect" aria-describedby="interfaceFontPresetHint">
-              <option value="default">默认（Stack Sans Text → MiSans）</option>
-              <option value="misans">MiSans</option>
-              <option value="system">系统无衬线</option>
-              <option value="serif">衬线阅读</option>
-              <option value="microsoftYaHei">微软雅黑</option>
-              <option value="dengxian">等线</option>
-              <option value="simsun">宋体</option>
-              <option value="kaiti">楷体</option>
-              <option value="fangsong">仿宋</option>
-              <option value="segoe">Segoe UI</option>
-              <option value="arial">Arial</option>
-              <option value="georgia">Georgia</option>
-              <option value="times">Times New Roman</option>
-              <option value="mono">等宽（系统）</option>
-              <option value="cascadia">Cascadia Code</option>
-              <option value="consolas">Consolas</option>
-              <option value="jetbrains">JetBrains Mono</option>
-            </select>
-            <p id="interfaceFontPresetHint" class="hint dim">应用于品牌、页头和未归属功能区的界面文字。</p>
-          </div>
-          <div class="typography-control">
-            <label class="field-label" for="codeFontPresetSelect">等宽字体</label>
-            <select id="codeFontPresetSelect" aria-describedby="codeFontPresetHint">
-              <option value="default">默认（Stack Sans Text → MiSans）</option>
-              <option value="misans">MiSans</option>
-              <option value="system">系统无衬线</option>
-              <option value="serif">衬线阅读</option>
-              <option value="microsoftYaHei">微软雅黑</option>
-              <option value="dengxian">等线</option>
-              <option value="simsun">宋体</option>
-              <option value="kaiti">楷体</option>
-              <option value="fangsong">仿宋</option>
-              <option value="segoe">Segoe UI</option>
-              <option value="arial">Arial</option>
-              <option value="georgia">Georgia</option>
-              <option value="times">Times New Roman</option>
-              <option value="mono">等宽（系统）</option>
-              <option value="cascadia">Cascadia Code</option>
-              <option value="consolas">Consolas</option>
-              <option value="jetbrains">JetBrains Mono</option>
-            </select>
-            <p id="codeFontPresetHint" class="hint dim">应用于时间戳、代码、BV 号等 mono 内容。</p>
-          </div>
-          <div class="button-row local-font-actions">
-            <button id="readLocalFontsBtn" class="ghost-btn" type="button">读取本机字体</button>
-            <span id="localFontsStatus" class="hint" role="status" aria-live="polite">点击后由 Chrome 询问本机字体访问权限，字体列表只在本机使用。</span>
-          </div>
-          <details class="typography-regions" open>
-            <summary><span>功能区独立排版</span><span class="hint dim">每个区域单独选择字体和 12–50px 字号</span></summary>
-            <div class="typography-region-grid">
-              <div class="typography-region-row">
-                <label class="field-label" for="transcriptFontPresetSelect">字幕</label>
-                <select id="transcriptFontPresetSelect" aria-label="字幕字体"></select>
-                <label class="sr-only" for="transcriptFontSizeRange">字幕字号</label>
-                <input id="transcriptFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="字幕字号" />
-                <output id="transcriptFontSizeOutput" for="transcriptFontSizeRange">14 px</output>
-              </div>
-              <div class="typography-region-row">
-                <label class="field-label" for="overviewFontPresetSelect">概览</label>
-                <select id="overviewFontPresetSelect" aria-label="概览字体"></select>
-                <label class="sr-only" for="overviewFontSizeRange">概览字号</label>
-                <input id="overviewFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="概览字号" />
-                <output id="overviewFontSizeOutput" for="overviewFontSizeRange">14 px</output>
-              </div>
-              <div class="typography-region-row">
-                <label class="field-label" for="notesFontPresetSelect">笔记</label>
-                <select id="notesFontPresetSelect" aria-label="笔记字体"></select>
-                <label class="sr-only" for="notesFontSizeRange">笔记字号</label>
-                <input id="notesFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="笔记字号" />
-                <output id="notesFontSizeOutput" for="notesFontSizeRange">14 px</output>
-              </div>
-              <div class="typography-region-row">
-                <label class="field-label" for="chatFontPresetSelect">对话</label>
-                <select id="chatFontPresetSelect" aria-label="对话字体"></select>
-                <label class="sr-only" for="chatFontSizeRange">对话字号</label>
-                <input id="chatFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="对话字号" />
-                <output id="chatFontSizeOutput" for="chatFontSizeRange">14 px</output>
-              </div>
-              <div class="typography-region-row">
-                <label class="field-label" for="settingsFontPresetSelect">设置</label>
-                <select id="settingsFontPresetSelect" aria-label="设置字体"></select>
-                <label class="sr-only" for="settingsFontSizeRange">设置字号</label>
-                <input id="settingsFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-label="设置字号" />
-                <output id="settingsFontSizeOutput" for="settingsFontSizeRange">14 px</output>
+        </div>
+        <div id="notesStatus" class="status-line" role="status" aria-live="polite"></div>
+        <div id="notesList" class="notes" aria-label="笔记列表"></div>
+      </section>
+
+      <!-- 5. 设置面板（五大可折叠区域） -->
+      <section id="tab-settings" class="panel" role="tabpanel" aria-labelledby="tab-btn-settings">
+        <!-- 1. AI 接口 -->
+        <details class="settings-accordion" id="accordionAi" open>
+          <summary class="accordion-head">
+            <span class="accordion-title">AI 接口（OpenAI 兼容）</span>
+            <span class="accordion-badge" id="aiConfigBadge">未配置</span>
+          </summary>
+          <div class="accordion-body">
+            <div class="provider-presets-wrap">
+              <span class="field-label" style="margin-top:0;">快捷服务商预设</span>
+              <div class="provider-preset-btns">
+                <button class="ghost-btn provider-preset-btn" type="button" data-provider="deepseek">DeepSeek</button>
+                <button class="ghost-btn provider-preset-btn" type="button" data-provider="openai">OpenAI</button>
+                <button class="ghost-btn provider-preset-btn" type="button" data-provider="groq">Groq</button>
+                <button class="ghost-btn provider-preset-btn" type="button" data-provider="siliconflow">硅基流动</button>
+                <button class="ghost-btn provider-preset-btn" type="button" data-provider="ollama">Ollama</button>
               </div>
             </div>
-          </details>
-          <label class="setting-switch" for="showMarkButtonCheckbox">
-            <input id="showMarkButtonCheckbox" type="checkbox" checked />
-            <span>显示视频页“标记”按钮</span>
-          </label>
-          <label class="setting-switch" for="showBrandTextCheckbox">
-            <input id="showBrandTextCheckbox" type="checkbox" checked />
-            <span>显示顶部品牌文字</span>
-          </label>
-          <div class="typography-control">
-            <label class="field-label" for="readingFontSizeRange">字号 <output id="readingFontSizeOutput" for="readingFontSizeRange">14 px</output></label>
-            <input id="readingFontSizeRange" type="range" min="12" max="50" step="1" value="14" aria-describedby="readingFontSizeOutput" />
+            <label class="field-label" for="apiKeyInput">API Key</label>
+            <div class="key-row">
+              <input
+                id="apiKeyInput"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="sk-…"
+              />
+              <button id="toggleKeyBtn" class="icon-btn" title="显示/隐藏" aria-label="显示或隐藏密钥" type="button">◉</button>
+            </div>
+            <label class="field-label" for="baseUrlInput">接口地址（Base URL）</label>
+            <input
+              id="baseUrlInput"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="https://…"
+            />
+            <label class="field-label" for="modelSelect">模型</label>
+            <select id="modelSelect">
+              <option value="__custom__">自定义…</option>
+            </select>
+            <input
+              id="modelInput"
+              type="text"
+              class="hidden"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="手动输入模型名称"
+            />
+            <label class="field-label" for="thinkingLevelSelect">思考等级</label>
+            <select id="thinkingLevelSelect">
+              <option value="off">关闭思考（快速，省 token）</option>
+              <option value="low">低</option>
+              <option value="medium">中</option>
+              <option value="high">高（更强，更慢更贵）</option>
+              <option value="default">跟随服务默认</option>
+            </select>
+            <p class="hint dim">
+              DeepSeek 支持思考开关与强度；其他 OpenAI 兼容端点传 reasoning_effort；Anthropic 兼容端点暂不附加此参数。
+            </p>
+            <div class="button-row">
+              <button id="listModelsBtn" class="ghost-btn" type="button">拉取模型</button>
+              <button id="testKeyBtn" class="ghost-btn" type="button">测试连接</button>
+            </div>
+            <div id="modelListHint" class="hint hidden" role="status" aria-live="polite"></div>
+            <div id="keyTestResult" class="hint" role="status" aria-live="polite"></div>
+          </div>
+        </details>
+
+        <!-- 2. Groq 字幕 -->
+        <details class="settings-accordion" id="accordionGroq">
+          <summary class="accordion-head">
+            <span class="accordion-title">AI 字幕 · Groq Whisper</span>
+            <span class="accordion-badge" id="groqConfigBadge">未配置</span>
+          </summary>
+          <div class="accordion-body">
+            <label class="field-label" for="asrGroqApiKeyInput">Groq API Key</label>
+            <div class="key-row">
+              <input id="asrGroqApiKeyInput" type="password" autocomplete="off" spellcheck="false" placeholder="gsk_…" />
+              <button id="toggleAsrKeyBtn" class="icon-btn" type="button" title="显示/隐藏" aria-label="显示或隐藏 Groq 密钥">◉</button>
+            </div>
+            <label class="field-label" for="asrModelSelect">转写模型</label>
+            <select id="asrModelSelect">
+              <option value="whisper-large-v3">Whisper Large V3（高精度）</option>
+              <option value="whisper-large-v3-turbo">Whisper Large V3 Turbo（极速）</option>
+            </select>
+            <label class="field-label" for="asrLanguageSelect">主要语言</label>
+            <select id="asrLanguageSelect">
+              <option value="auto">自动检测</option>
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+              <option value="ja">日本語</option>
+            </select>
+            <div class="button-row">
+              <button id="testAsrBtn" class="ghost-btn" type="button">测试 Groq</button>
+            </div>
+            <div id="asrTestResult" class="hint" role="status" aria-live="polite"></div>
+            <p class="hint dim">无 B站字幕时可手动生成 AI 字幕。由浏览器先取得 B站音轨再上传 Groq，避免 Groq 直读 CDN 的 403。</p>
+          </div>
+        </details>
+
+        <!-- 3. 阅读外观 -->
+        <details class="settings-accordion" id="accordionTypography" open>
+          <summary class="accordion-head">
+            <span class="accordion-title">阅读外观与排版</span>
+            <span class="accordion-badge" id="typographyConfigBadge">默认 · 14px</span>
+          </summary>
+          <div class="accordion-body">
+            <label class="setting-switch" for="transcriptAutoFollowCheckbox">
+              <input id="transcriptAutoFollowCheckbox" type="checkbox" checked />
+              <span>字幕自动跟随播放进度滚动</span>
+            </label>
+            <div class="font-search-row">
+              <label class="field-label" for="fontSearchInput">字体搜索</label>
+              <input
+                id="fontSearchInput"
+                type="search"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="搜索字体名称（支持中英文，忽略空格和连字符）"
+                aria-describedby="fontSearchStatus"
+              />
+              <span id="fontSearchStatus" class="hint" role="status" aria-live="polite">正在加载字体预设…</span>
+              <p class="hint dim">内置字体预设固定且安全；如果本机未安装某个字体，浏览器会自动回退。读取本机字体仅在点击后执行。</p>
+            </div>
+            <div class="typography-control">
+              <label class="field-label" for="readingFontPresetSelect">基础阅读字体</label>
+              <select id="readingFontPresetSelect" aria-describedby="readingFontPresetHint"></select>
+              <p id="readingFontPresetHint" class="hint dim">五个功能区的共同回退字体；可在下方单独覆盖。</p>
+            </div>
+            <div class="typography-control">
+              <label class="field-label" for="interfaceFontPresetSelect">界面字体（含顶部标签栏）</label>
+              <select id="interfaceFontPresetSelect" aria-describedby="interfaceFontPresetHint"></select>
+              <p id="interfaceFontPresetHint" class="hint dim">应用于品牌、页头和未归属功能区的界面文字。</p>
+            </div>
+            <div class="typography-control">
+              <label class="field-label" for="codeFontPresetSelect">等宽字体</label>
+              <select id="codeFontPresetSelect" aria-describedby="codeFontPresetHint"></select>
+              <p id="codeFontPresetHint" class="hint dim">应用于时间戳、代码、BV 号等 mono 内容。</p>
+            </div>
+            <div class="button-row local-font-actions">
+              <button id="readLocalFontsBtn" class="ghost-btn" type="button">读取本机字体</button>
+              <span id="localFontsStatus" class="hint" role="status" aria-live="polite">点击后读取 Chrome 提供的系统字体列表，仅在本机使用。</span>
+            </div>
+            <details class="typography-regions" open>
+              <summary><span>功能区独立排版</span><span class="hint dim">每个区域单独选择字体和 12–30px 字号</span></summary>
+              <div class="typography-region-grid">
+                <div class="typography-region-row">
+                  <label class="field-label" for="transcriptFontPresetSelect">字幕</label>
+                  <select id="transcriptFontPresetSelect" aria-label="字幕字体"></select>
+                  <label class="sr-only" for="transcriptFontSizeRange">字幕字号</label>
+                  <input id="transcriptFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-label="字幕字号" />
+                  <output id="transcriptFontSizeOutput" for="transcriptFontSizeRange">14 px</output>
+                </div>
+                <div class="typography-region-row">
+                  <label class="field-label" for="overviewFontPresetSelect">概览</label>
+                  <select id="overviewFontPresetSelect" aria-label="概览字体"></select>
+                  <label class="sr-only" for="overviewFontSizeRange">概览字号</label>
+                  <input id="overviewFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-label="概览字号" />
+                  <output id="overviewFontSizeOutput" for="overviewFontSizeRange">14 px</output>
+                </div>
+                <div class="typography-region-row">
+                  <label class="field-label" for="notesFontPresetSelect">笔记</label>
+                  <select id="notesFontPresetSelect" aria-label="笔记字体"></select>
+                  <label class="sr-only" for="notesFontSizeRange">笔记字号</label>
+                  <input id="notesFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-label="笔记字号" />
+                  <output id="notesFontSizeOutput" for="notesFontSizeRange">14 px</output>
+                </div>
+                <div class="typography-region-row">
+                  <label class="field-label" for="chatFontPresetSelect">对话</label>
+                  <select id="chatFontPresetSelect" aria-label="对话字体"></select>
+                  <label class="sr-only" for="chatFontSizeRange">对话字号</label>
+                  <input id="chatFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-label="对话字号" />
+                  <output id="chatFontSizeOutput" for="chatFontSizeRange">14 px</output>
+                </div>
+                <div class="typography-region-row">
+                  <label class="field-label" for="settingsFontPresetSelect">设置</label>
+                  <select id="settingsFontPresetSelect" aria-label="设置字体"></select>
+                  <label class="sr-only" for="settingsFontSizeRange">设置字号</label>
+                  <input id="settingsFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-label="设置字号" />
+                  <output id="settingsFontSizeOutput" for="settingsFontSizeRange">14 px</output>
+                </div>
+              </div>
+            </details>
+            <label class="setting-switch" for="showMarkButtonCheckbox">
+              <input id="showMarkButtonCheckbox" type="checkbox" checked />
+              <span>显示视频页“标记”按钮</span>
+            </label>
+            <label class="setting-switch" for="showBrandTextCheckbox">
+              <input id="showBrandTextCheckbox" type="checkbox" checked />
+              <span>显示顶部品牌文字</span>
+            </label>
+            <div class="typography-control">
+              <label class="field-label" for="readingFontSizeRange">字号 <output id="readingFontSizeOutput" for="readingFontSizeRange">14 px</output></label>
+              <input id="readingFontSizeRange" type="range" min="12" max="30" step="1" value="14" aria-describedby="readingFontSizeOutput" />
             </div>
             <div class="typography-control">
               <label class="field-label" for="readingLineHeightRange">行间距 <output id="readingLineHeightOutput" for="readingLineHeightRange">1.7</output></label>
               <input id="readingLineHeightRange" type="range" min="1.4" max="2.2" step="0.1" value="1.7" aria-describedby="readingLineHeightOutput" />
             </div>
             <div class="typography-control">
-            <label class="field-label" for="readingLetterSpacingRange">字间距 <output id="readingLetterSpacingOutput" for="readingLetterSpacingRange">0</output></label>
-            <input id="readingLetterSpacingRange" type="range" min="0" max="0.08" step="0.01" value="0" aria-describedby="readingLetterSpacingOutput" />
-          </div>
-          <details class="typography-advanced">
-            <summary>更多界面字号</summary>
-            <div class="typography-advanced-grid">
-              <div class="typography-control">
-                <label class="field-label" for="brandFontSizeRange">品牌字号 <output id="brandFontSizeOutput" for="brandFontSizeRange">12 px</output></label>
-                <input id="brandFontSizeRange" type="range" min="12" max="50" step="1" value="12" aria-describedby="brandFontSizeOutput" />
-              </div>
-              <div class="typography-control">
-                <label class="field-label" for="titleFontSizeRange">标题字号 <output id="titleFontSizeOutput" for="titleFontSizeRange">17 px</output></label>
-                <input id="titleFontSizeRange" type="range" min="12" max="50" step="1" value="17" aria-describedby="titleFontSizeOutput" />
-              </div>
-              <div class="typography-control">
-              <label class="field-label" for="navigationFontSizeRange">顶部标签栏字号（五项一致） <output id="navigationFontSizeOutput" for="navigationFontSizeRange">13 px</output></label>
-                <input id="navigationFontSizeRange" type="range" min="12" max="50" step="1" value="13" aria-describedby="navigationFontSizeOutput" />
-              </div>
-              <div class="typography-control">
-                <label class="field-label" for="controlFontSizeRange">控件字号 <output id="controlFontSizeOutput" for="controlFontSizeRange">13 px</output></label>
-                <input id="controlFontSizeRange" type="range" min="12" max="50" step="1" value="13" aria-describedby="controlFontSizeOutput" />
-              </div>
-              <div class="typography-control">
-                <label class="field-label" for="overviewButtonFontSizeRange">“生成 AI 概览”字号 <output id="overviewButtonFontSizeOutput" for="overviewButtonFontSizeRange">13 px</output></label>
-                <input id="overviewButtonFontSizeRange" type="range" min="12" max="50" step="1" value="13" aria-describedby="overviewButtonFontSizeOutput" />
-              </div>
-              <div class="typography-control">
-                <label class="field-label" for="videoActionButtonSizeRange">视频页方块按钮尺寸 <output id="videoActionButtonSizeOutput" for="videoActionButtonSizeRange">44 px</output></label>
-                <input id="videoActionButtonSizeRange" type="range" min="36" max="80" step="2" value="44" aria-describedby="videoActionButtonSizeOutput" />
-              </div>
-              <div class="typography-control">
-                <label class="field-label" for="metaFontSizeRange">辅助字号 <output id="metaFontSizeOutput" for="metaFontSizeRange">12 px</output></label>
-                <input id="metaFontSizeRange" type="range" min="12" max="50" step="1" value="12" aria-describedby="metaFontSizeOutput" />
-              </div>
-              <div class="typography-control">
-                <label class="field-label" for="codeFontSizeRange">代码字号 <output id="codeFontSizeOutput" for="codeFontSizeRange">12 px</output></label>
-                <input id="codeFontSizeRange" type="range" min="12" max="50" step="1" value="12" aria-describedby="codeFontSizeOutput" />
-              </div>
+              <label class="field-label" for="readingLetterSpacingRange">字间距 <output id="readingLetterSpacingOutput" for="readingLetterSpacingRange">0</output></label>
+              <input id="readingLetterSpacingRange" type="range" min="0" max="0.08" step="0.01" value="0" aria-describedby="readingLetterSpacingOutput" />
             </div>
-          </details>
-          <div class="typography-preview" aria-label="阅读排版预览">
-            <p class="typography-preview-brand">BILI DIGEST · 品牌预览</p>
-            <p class="typography-preview-title">视频标题预览：让每个区域都清晰可读</p>
-            <p class="typography-preview-nav"><span>字幕</span><span>概览</span><span>笔记</span><span>对话</span><span>设置</span></p>
-            <div class="typography-preview-regions" aria-label="功能区独立排版预览">
-              <div class="typography-preview-region" data-region="transcript"><strong>字幕</strong><span>原文与双语字幕示例</span></div>
-              <div class="typography-preview-region" data-region="overview"><strong>概览</strong><span>章节与重点内容示例</span><button class="typography-preview-overview-button" type="button" tabindex="-1">生成 AI 概览</button></div>
-              <div class="typography-preview-region" data-region="notes"><strong>笔记</strong><span>带时间戳的学习笔记</span></div>
-              <div class="typography-preview-region" data-region="chat"><strong>对话</strong><span>视频问答消息示例</span></div>
-              <div class="typography-preview-region" data-region="settings"><strong>设置</strong><span>按钮、输入框与选择器示例</span></div>
+            <details class="typography-advanced">
+              <summary>更多界面字号</summary>
+              <div class="typography-advanced-grid">
+                <div class="typography-control">
+                  <label class="field-label" for="brandFontSizeRange">品牌字号 <output id="brandFontSizeOutput" for="brandFontSizeRange">12 px</output></label>
+                  <input id="brandFontSizeRange" type="range" min="12" max="30" step="1" value="12" aria-describedby="brandFontSizeOutput" />
+                </div>
+                <div class="typography-control">
+                  <label class="field-label" for="titleFontSizeRange">标题字号 <output id="titleFontSizeOutput" for="titleFontSizeRange">17 px</output></label>
+                  <input id="titleFontSizeRange" type="range" min="12" max="30" step="1" value="17" aria-describedby="titleFontSizeOutput" />
+                </div>
+                <div class="typography-control">
+                  <label class="field-label" for="navigationFontSizeRange">顶部标签栏字号 <output id="navigationFontSizeOutput" for="navigationFontSizeRange">13 px</output></label>
+                  <input id="navigationFontSizeRange" type="range" min="12" max="30" step="1" value="13" aria-describedby="navigationFontSizeOutput" />
+                </div>
+                <div class="typography-control">
+                  <label class="field-label" for="controlFontSizeRange">控件字号 <output id="controlFontSizeOutput" for="controlFontSizeRange">13 px</output></label>
+                  <input id="controlFontSizeRange" type="range" min="12" max="30" step="1" value="13" aria-describedby="controlFontSizeOutput" />
+                </div>
+                <div class="typography-control">
+                  <label class="field-label" for="overviewButtonFontSizeRange">“生成 AI 概览”字号 <output id="overviewButtonFontSizeOutput" for="overviewButtonFontSizeRange">13 px</output></label>
+                  <input id="overviewButtonFontSizeRange" type="range" min="12" max="30" step="1" value="13" aria-describedby="overviewButtonFontSizeOutput" />
+                </div>
+                <div class="typography-control">
+                  <label class="field-label" for="videoActionButtonSizeRange">视频页方块按钮尺寸 <output id="videoActionButtonSizeOutput" for="videoActionButtonSizeRange">44 px</output></label>
+                  <input id="videoActionButtonSizeRange" type="range" min="36" max="80" step="2" value="44" aria-describedby="videoActionButtonSizeOutput" />
+                </div>
+                <div class="typography-control">
+                  <label class="field-label" for="metaFontSizeRange">辅助字号 <output id="metaFontSizeOutput" for="metaFontSizeRange">12 px</output></label>
+                  <input id="metaFontSizeRange" type="range" min="12" max="30" step="1" value="12" aria-describedby="metaFontSizeOutput" />
+                </div>
+                <div class="typography-control">
+                  <label class="field-label" for="codeFontSizeRange">代码字号 <output id="codeFontSizeOutput" for="codeFontSizeRange">12 px</output></label>
+                  <input id="codeFontSizeRange" type="range" min="12" max="30" step="1" value="12" aria-describedby="codeFontSizeOutput" />
+                </div>
+              </div>
+            </details>
+            <div class="typography-preview" id="sidepanelTypographyPreview" aria-label="排版即时预览">
+              <p class="typography-preview-brand">BILI DIGEST · 品牌预览</p>
+              <p class="typography-preview-title">视频标题预览：让每个区域都清晰可读</p>
+              <p class="typography-preview-nav"><span>字幕</span><span>概览</span><span>对话</span><span>笔记</span><span>设置</span></p>
+              <div class="typography-preview-regions" aria-label="功能区独立排版预览">
+                <div class="typography-preview-region" data-region="transcript"><strong>字幕</strong><span>原文与双语字幕示例</span></div>
+                <div class="typography-preview-region" data-region="overview"><strong>概览</strong><span>章节与重点内容示例</span><button class="typography-preview-overview-button" type="button" tabindex="-1">生成 AI 概览</button></div>
+                <div class="typography-preview-region" data-region="chat"><strong>对话</strong><span>视频问答消息示例</span></div>
+                <div class="typography-preview-region" data-region="notes"><strong>笔记</strong><span>带时间戳的学习笔记</span></div>
+                <div class="typography-preview-region" data-region="settings"><strong>设置</strong><span>按钮、输入框与选择器示例</span></div>
+              </div>
+              <p class="typography-preview-zh">中文预览：让字幕、概览与笔记更适合长时间阅读。</p>
+              <p class="typography-preview-tr">Latin / English preview 123456</p>
+              <p class="typography-preview-controls"><button type="button" tabindex="-1">按钮预览</button> <span class="typography-preview-meta">辅助文字 · 00:12</span> <code>const mono = true;</code></p>
+              <p class="video-button-preview" aria-label="视频页按钮预览"><button type="button" tabindex="-1">精读</button><button type="button" tabindex="-1">标记</button></p>
             </div>
-            <p class="typography-preview-zh">中文预览：让字幕、概览与笔记更适合长时间阅读。</p>
-            <p class="typography-preview-tr">Latin / English preview 123456</p>
-            <p class="typography-preview-controls"><button type="button" tabindex="-1">按钮预览</button> <span class="typography-preview-meta">辅助文字 · 00:12</span> <code>const mono = true;</code></p>
-            <p class="video-button-preview" aria-label="视频页按钮预览"><button type="button" tabindex="-1">精读</button><button type="button" tabindex="-1">标记</button></p>
-          </div>
             <div class="button-row typography-actions">
               <button id="resetTypographyBtn" class="ghost-btn" type="button">恢复默认</button>
-              <span id="typographyStatus" class="hint" role="status" aria-live="polite">修改后会即时预览，点击“保存设置”才会写入。</span>
+              <span id="typographyStatus" class="hint" role="status" aria-live="polite">修改后会即时预览，点击“保存设置”后生效。</span>
             </div>
           </div>
-        </div>
+        </details>
 
-        <div class="settings-group">
-          <h2 class="group-title">翻译</h2>
-          <label class="field-label" for="targetLanguageSelect">目标语言</label>
-          <select id="targetLanguageSelect">
-            <option value="English">English（英语）</option>
-            <option value="日本語">日本語（日语）</option>
-            <option value="한국어">한국어（韩语）</option>
-            <option value="custom">自定义…</option>
-          </select>
-          <input
-            id="customLanguageInput"
-            class="hidden"
-            placeholder="输入目标语言，如 Français"
-            spellcheck="false"
-          />
-        </div>
-
-        <div class="settings-group">
-          <h2 class="group-title">设置备份</h2>
-          <p class="hint dim">导出和导入 AI、翻译、排版、按钮及主题设置；不会包含字幕、笔记、对话或缓存。</p>
-          <label class="setting-switch" for="includeApiKeyExportCheckbox">
-            <input id="includeApiKeyExportCheckbox" type="checkbox" />
-            <span>导出时包含 API Key（敏感信息）</span>
-          </label>
-          <div class="button-row">
-            <button id="exportSettingsBtn" class="ghost-btn" type="button">导出设置</button>
-            <button id="importSettingsBtn" class="ghost-btn" type="button">导入设置</button>
-            <input id="settingsImportFile" class="hidden" type="file" accept="application/json,.json" />
+        <!-- 4. 翻译 -->
+        <details class="settings-accordion" id="accordionTranslation">
+          <summary class="accordion-head">
+            <span class="accordion-title">翻译设置</span>
+            <span class="accordion-badge" id="translationConfigBadge">English</span>
+          </summary>
+          <div class="accordion-body">
+            <label class="field-label" for="targetLanguageSelect">目标语言</label>
+            <select id="targetLanguageSelect">
+              <option value="English">English（英语）</option>
+              <option value="日本語">日本語（日语）</option>
+              <option value="한국어">한국어（韩语）</option>
+              <option value="custom">自定义…</option>
+            </select>
+            <input
+              id="customLanguageInput"
+              class="hidden"
+              placeholder="输入目标语言，如 Français"
+              spellcheck="false"
+              aria-label="自定义目标语言名称"
+            />
           </div>
-          <p id="settingsTransferStatus" class="hint" role="status" aria-live="polite"></p>
-        </div>
+        </details>
 
-        <div class="settings-group">
-          <h2 class="group-title">使用前提</h2>
-          <p class="hint dim">
-            读取字幕依赖你在 bilibili.com 的登录状态。扩展不会读取或保存你的登录信息，只是由浏览器在请求时自动携带。
-          </p>
-        </div>
+        <!-- 5. 备份与缓存管理 -->
+        <details class="settings-accordion" id="accordionBackup">
+          <summary class="accordion-head">
+            <span class="accordion-title">设置备份与缓存管理</span>
+            <span class="accordion-badge">备份 / 清理</span>
+          </summary>
+          <div class="accordion-body">
+            <p class="hint dim">导出和导入 AI、翻译、排版、按钮及主题设置；不包含字幕、笔记或对话。</p>
+            <label class="setting-switch" for="includeApiKeyExportCheckbox">
+              <input id="includeApiKeyExportCheckbox" type="checkbox" />
+              <span>导出时包含 API Key（敏感信息）</span>
+            </label>
+            <div class="button-row">
+              <button id="exportSettingsBtn" class="ghost-btn" type="button">导出设置</button>
+              <button id="importSettingsBtn" class="ghost-btn" type="button">导入设置</button>
+              <button id="clearCacheBtn" class="ghost-btn danger-text" type="button" title="清理字幕、翻译、概览与对话缓存，释放存储空间">清理 AI 与字幕缓存</button>
+              <input id="settingsImportFile" class="hidden" type="file" accept="application/json,.json" />
+            </div>
+            <p id="settingsTransferStatus" class="hint" role="status" aria-live="polite"></p>
+          </div>
+        </details>
 
-        <div class="button-row sticky">
-          <button id="saveSettingsBtn" class="primary-btn">保存设置</button>
+        <div class="settings-save-footer">
+          <button id="saveSettingsBtn" class="primary-btn" type="button">保存设置</button>
         </div>
       </section>
     </main>
 
-    <div id="explainSheet" class="explain-sheet hidden">
-      <div class="sheet-head">
-        <span class="sheet-title">AI 解释</span>
-        <button id="closeExplainBtn" class="icon-btn" title="关闭" aria-label="关闭解释">✕</button>
+    <!-- 历史视频切换抽屉 -->
+    <div id="historyDrawer" class="history-drawer hidden" role="dialog" aria-modal="true" aria-label="历史视频切换">
+      <div class="history-drawer-header">
+        <div class="history-drawer-title-group">
+          <h2>历史视频</h2>
+          <span id="historyTotalBadge" class="history-badge">0 个视频</span>
+        </div>
+        <div class="history-drawer-actions">
+          <button id="clearHistoryBtn" class="ghost-btn danger-text" type="button" title="清空全部历史记录">清空历史</button>
+          <button id="closeHistoryBtn" class="icon-btn" type="button" aria-label="关闭历史视频">✕</button>
+        </div>
       </div>
-      <div id="explainOriginal" class="sheet-original"></div>
-      <div id="explainResult" class="sheet-result"></div>
+      <div class="history-search-row">
+        <input
+          id="historySearchInput"
+          type="search"
+          placeholder="搜索历史记录 (按标题 / UP 主 / BV 号)..."
+          autocomplete="off"
+          spellcheck="false"
+          aria-label="搜索历史视频"
+        />
+      </div>
+      <div id="historyList" class="history-list" tabindex="0" aria-label="历史视频列表"></div>
     </div>
 
-    <div id="toast" class="toast hidden" role="status"></div>
+    <!-- AI 单句解释浮层 -->
+    <div id="explainSheet" class="explain-sheet hidden" role="dialog" aria-modal="true" aria-label="AI 解释浮层">
+      <div class="explain-header">
+        <span>AI 句子解释</span>
+        <button id="closeExplainBtn" class="icon-btn" type="button" aria-label="关闭解释浮层">✕</button>
+      </div>
+      <div id="explainOriginal" class="explain-original"></div>
+      <div id="explainResult" class="explain-result" role="status" aria-live="polite"></div>
+    </div>
+
+    <!-- 轻量 Toast 提示 -->
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
     <script type="module" src="sidepanel.js"></script>
   </body>
 </html>

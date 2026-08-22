@@ -23,6 +23,7 @@ Bili Digest 是一个 Chrome 侧边栏扩展：在你看 B站视频的同时，�
 ## 功能
 
 - 把字幕变成可阅读、可点击跳转的学习文本
+- 无 B站字幕时，可手动调用 Groq Whisper Large V3 / Turbo 生成带时间轴的 AI 字幕；浏览器先取得 B站最低码率音轨再上传，避免 Groq 直读 B站 CDN 的 403
 - 日间 / 夜间主题一键切换，整套界面用 B站品牌配色
 - 原文 / 双语两种视图（双语可一键隐藏原文只看译文），默认中文译英文，目标语言可配置
 - 字幕一键复制全文，导出为 Markdown（含视频简介、概览、双语字幕、笔记）
@@ -41,7 +42,7 @@ Bili Digest 是一个 Chrome 侧边栏扩展：在你看 B站视频的同时，�
 
 看视频学习有两个痛点：字幕一闪而过、知识不成体系。Bili Digest 把「看」变成「读」：字幕可以像文章一样翻阅，AI 帮你搭出知识骨架，笔记帮你沉淀复习。
 
-这个项目的灵感来自 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/youtube-digest)（MIT 许可），但它是为 B站从零重写的：数据源换成 B站网页端字幕，不依赖任何第三方转写服务。
+这个项目的灵感来自 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/youtube-digest)（MIT 许可），但它是为 B站从零重写的：优先读取 B站网页端字幕；当视频没有字幕时，可由用户手动启用 Groq Whisper 转写。
 
 ## 安装
 
@@ -67,11 +68,12 @@ AI 功能（翻译、概览、逐句解释、笔记润色、视频问答）需�
 
 - Chrome 116 或更新版本；
 - 在 `bilibili.com` 处于**登录状态**。B站的网页端字幕接口只对登录用户返回字幕列表。扩展不会读取或保存你的登录信息，只是由浏览器在请求时自动携带；
-- 视频本身要有字幕。B站部分视频（尤其较老的搬运视频）没有 CC 字幕或 AI 字幕，这类视频无法提取字幕。Shorts、直播、番剧页不在支持范围内。
+- 有 B站 CC/AI 字幕时会直接读取；没有字幕时可以在「字幕」页手动点击「AI 生成字幕」，需要先配置 Groq API Key；
+- Groq 免费层直传单文件上限为 25 MB。扩展优先选择 B站 64K 音轨，但特别长的视频仍可能超过限制；当前版本会明确提示，不会再回退到会触发 403 的 Groq 远程 URL 抓取。Shorts、直播、番剧页不在支持范围内。
 
 ## 使用
 
-1. 打开一个带字幕的 B站视频（`bilibili.com/video/...`）；
+1. 打开一个 B站视频（`bilibili.com/video/...`）；有原生字幕会直接加载，没有字幕会显示「AI 生成字幕」；
 2. 点击工具栏的「精读」按钮或扩展图标打开侧边栏；
 3. 「字幕」页：点时间戳跳转，切换原文 / 双语（双语可隐藏原文只看译文），悬停某句点「解释」；切到双语不会自动翻译，点右上角「翻译」按钮才触发（结果会缓存复用），右上角还能复制全文或导出 Markdown；
 4. 「概览」页：点「生成 AI 概览」才会调用 AI（不会自动生成），生成内容概要、章节、要点和金句，金句可复制或直接存为笔记，右上角可单独导出概览；
@@ -87,7 +89,8 @@ B站视频页 (content.js)
    ▼
 后台服务 (background.js)
    │  WBI 签名 → x/player/wbi/v2 → 字幕轨道列表
-   │  下载字幕 JSON（aisubtitle.hdslb.com）
+   │  有字幕：下载字幕 JSON（aisubtitle.hdslb.com）
+   │  无字幕：x/player/wbi/playurl → 浏览器下载最低码率音轨 → Groq Whisper
    │  所选 AI 服务 → 翻译 / 概览 / 解释
    ▼
 侧边栏 (sidepanel.*)
@@ -99,23 +102,24 @@ B站视频页 (content.js)
 - B站字幕接口返回 `subtitle_url`，指向一个字幕 JSON 文件，结构为 `{ body: [{ from, to, content }] }`，`from/to` 单位是秒；
 - 字幕轨道的主来源是 `x/player/wbi/v2`（带 `aid+cid`，与播放页一致），失败时回退 `x/player/v2`；两者都失败才用 WBI 签名（`w_rid` + `wts`）兜底，签名实现有单元测试覆盖；
 - 请求 B站接口时显式携带浏览器头、`zh-CN` 语言头和 `https://www.bilibili.com/` 的 Referer，避免被风控拦截；
-- 字幕、概览、翻译都会缓存在本机 `chrome.storage.local`，重复观看不重复计费。
+- B站字幕、Groq 生成的 AI 字幕、概览、翻译都会缓存在本机 `chrome.storage.local`，重复观看优先复用缓存。
 
 ## 数据与隐私
 
-- 字幕请求发给 B站（`api.bilibili.com`、`aisubtitle.hdslb.com`）；
-- AI 请求发给你在设置中填写的接口地址，只发送字幕、你选中的文本、笔记草稿或对话所需的整段字幕；若使用「自定义」端点，数据直接发往你填写的地址，扩展不中转；
-- 权限最小化：扩展只对 B站域名声明固定权限，AI 服务商地址在保存设置时按需申请授权（可在 `chrome://extensions` 权限页随时撤销）；
-- 没有账号系统、广告、埋点或遥测。详见 [PRIVACY.md](PRIVACY.md)。
+- 字幕与音轨请求发给 B站官方接口与 CDN（`api.bilibili.com`、`aisubtitle.hdslb.com`、B站媒体音轨）；
+- 只有你手动点击「AI 生成字幕」时，浏览器下载到的音频才会直接上传到 `api.groq.com` 做 Whisper 转写；
+- AI 请求直接发给你在设置中填写的接口地址（如 OpenAI、DeepSeek、Anthropic 兼容端点或本地 Ollama），只发送字幕、你选中的文本、笔记草稿或对话所需的整段字幕，扩展不中转；
+- 扩展会在本地 `chrome.storage.local` 维护最多 50 条本地观看历史用于侧栏重看与快速切换，随时可在历史抽屉中清空或删除；
+- 权限声明：声明 HTTPS 与本地回环权限以支持连接任意用户自定义 AI 端点；不读取其他网站内容，没有账号系统、广告、埋点或遥测。详见 [PRIVACY.md](PRIVACY.md)。
 
 ## 费用
 
-字幕提取免费。AI 功能按你选择的服务商定价计费，翻译只在你切换到译文视图时发生，且结果会缓存。各家的价格和优惠不同，请以对应的官方定价页为准（例如 [DeepSeek 定价页](https://api-docs.deepseek.com/quick_start/pricing)）。
+B站字幕提取免费。Groq AI 字幕使用你自己的 Groq 账号额度；其他 AI 功能按你选择的服务商定价计费，翻译只在你切换到译文视图时发生，且结果会缓存。各家的价格和优惠不同，请以对应的官方定价页为准（例如 [DeepSeek 定价页](https://api-docs.deepseek.com/quick_start/pricing)）。
 
 ## 字幕提取不出来？
 
 1. 确认 Chrome 里 `bilibili.com` 处于**登录状态**，然后刷新视频页；
-2. 确认这个视频**本身有字幕**（CC 字幕或 AI 字幕）。没有字幕的视频无法提取，这是 B站的数据限制；
+2. 如果视频没有 CC/AI 字幕，先在设置里填写 Groq Key，再在字幕页点「AI 生成字幕」；若提示音频超过 24 MB，则是 Groq 免费层 25 MB 直传限制；
 3. 在项目目录运行自检脚本，能区分「接口不通」和「视频无字幕」：
 
    ```bash

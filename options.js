@@ -19,6 +19,12 @@ const apiKeyInput = $("apiKeyInput");
 const toggleKeyBtn = $("toggleKeyBtn");
 const testKeyBtn = $("testKeyBtn");
 const keyTestResultEl = $("keyTestResult");
+const asrGroqApiKeyInput = $("asrGroqApiKeyInput");
+const toggleAsrKeyBtn = $("toggleAsrKeyBtn");
+const asrModelSelect = $("asrModelSelect");
+const asrLanguageSelect = $("asrLanguageSelect");
+const testAsrBtn = $("testAsrBtn");
+const asrTestResultEl = $("asrTestResult");
 const baseUrlInput = $("baseUrlInput");
 const modelSelect = $("modelSelect");
 const modelInput = $("modelInput");
@@ -63,9 +69,11 @@ const fontSearchInput = $("fontSearchInput");
 const fontSearchStatus = $("fontSearchStatus");
 const showMarkButtonCheckbox = $("showMarkButtonCheckbox");
 const showBrandTextCheckbox = $("showBrandTextCheckbox");
+const transcriptAutoFollowCheckbox = $("transcriptAutoFollowCheckbox");
 const includeApiKeyExportCheckbox = $("includeApiKeyExportCheckbox");
 const exportSettingsBtn = $("exportSettingsBtn");
 const importSettingsBtn = $("importSettingsBtn");
+const clearCacheBtn = $("clearCacheBtn");
 const settingsImportFile = $("settingsImportFile");
 const settingsTransferStatus = $("settingsTransferStatus");
 const regionTypographyControls = [
@@ -307,6 +315,9 @@ async function loadSettings() {
   try {
     const { settings } = await send("getSettings");
     apiKeyInput.value = settings.aiApiKey || "";
+    asrGroqApiKeyInput.value = settings.asrGroqApiKey || "";
+    asrModelSelect.value = settings.asrModel || "whisper-large-v3";
+    asrLanguageSelect.value = settings.asrLanguage || "auto";
     baseUrlInput.value = settings.aiBaseUrl || "";
     const savedModel = String(settings.aiModel || "").trim();
     if (savedModel) {
@@ -320,6 +331,7 @@ async function loadSettings() {
     customLanguageInput.value = settings.customLanguage || "";
     showMarkButtonCheckbox.checked = settings.showMarkButton !== false;
     showBrandTextCheckbox.checked = normalizeShowBrandText(settings.showBrandText, true);
+    transcriptAutoFollowCheckbox.checked = settings.transcriptAutoFollow !== false;
     updateCustomVisibility();
     setTypographyControls(settings);
   } catch (error) {
@@ -334,6 +346,9 @@ async function saveSettings() {
     await send("setSettings", {
       settings: {
         aiApiKey: apiKeyInput.value.trim(),
+        asrGroqApiKey: asrGroqApiKeyInput.value.trim(),
+        asrModel: asrModelSelect.value,
+        asrLanguage: asrLanguageSelect.value,
         aiBaseUrl: baseUrl,
         aiModel: getCurrentModelValue(),
         thinkingLevel: thinkingLevelSelect.value,
@@ -341,11 +356,16 @@ async function saveSettings() {
         customLanguage: customLanguageInput.value.trim(),
         showMarkButton: showMarkButtonCheckbox.checked,
         showBrandText: showBrandTextCheckbox.checked,
+        transcriptAutoFollow: transcriptAutoFollowCheckbox.checked,
         ...typographyFromControls(),
       },
     });
+    savedHint.textContent = "✓ 设置已保存";
     savedHint.classList.remove("hidden");
-    setTimeout(() => savedHint.classList.add("hidden"), 2000);
+    setTimeout(() => {
+      savedHint.textContent = "";
+      savedHint.classList.add("hidden");
+    }, 2500);
   } catch (error) {
     keyTestResultEl.className = "hint error";
     keyTestResultEl.textContent = error.message;
@@ -395,6 +415,14 @@ async function importSettingsFile() {
   try {
     if (file.size > 1024 * 1024) throw new Error("设置文件过大，最大支持 1 MB");
     const imported = parseSettingsBackup(await file.text());
+    if (imported.includesApiKey) {
+      const confirmed = window.confirm("该备份文件包含 API Key，确定导入并覆盖当前密钥吗？");
+      if (!confirmed) {
+        settingsTransferStatus.className = "hint";
+        settingsTransferStatus.textContent = "已取消导入。";
+        return;
+      }
+    }
     await send("setSettings", { settings: imported.settings });
     if (imported.theme) {
       await chrome.storage.local.set({ theme: imported.theme });
@@ -410,6 +438,26 @@ async function importSettingsFile() {
     settingsTransferStatus.textContent = error.message;
   } finally {
     settingsImportFile.value = "";
+  }
+}
+
+async function testGroqAsr() {
+  asrTestResultEl.className = "hint";
+  asrTestResultEl.textContent = "正在测试 Groq…";
+  testAsrBtn.disabled = true;
+  try {
+    const result = await send("testGroqAsr", {
+      apiKey: asrGroqApiKeyInput.value.trim(),
+    });
+    asrTestResultEl.className = "hint ok";
+    asrTestResultEl.textContent = result.available
+      ? "Groq 连接成功，Whisper 模型可用。"
+      : "Groq 连接成功，但当前模型列表未发现 Whisper。";
+  } catch (error) {
+    asrTestResultEl.className = "hint error";
+    asrTestResultEl.textContent = error.message;
+  } finally {
+    testAsrBtn.disabled = false;
   }
 }
 
@@ -481,12 +529,70 @@ function fillModelList(models) {
   if (selected !== "__custom__") modelInput.value = "";
 }
 
+const PROVIDER_PRESETS = {
+  deepseek: {
+    baseUrl: "https://api.deepseek.com/v1",
+    model: "deepseek-chat",
+    thinkingLevel: "off",
+  },
+  openai: {
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini",
+    thinkingLevel: "off",
+  },
+  groq: {
+    baseUrl: "https://api.groq.com/openai/v1",
+    model: "llama-3.3-70b-versatile",
+    thinkingLevel: "off",
+  },
+  siliconflow: {
+    baseUrl: "https://api.siliconflow.cn/v1",
+    model: "deepseek-ai/DeepSeek-V3",
+    thinkingLevel: "off",
+  },
+  ollama: {
+    baseUrl: "http://localhost:11434/v1",
+    model: "qwen2.5:7b",
+    thinkingLevel: "off",
+  },
+};
+
+document.querySelectorAll(".provider-preset-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const key = btn.dataset.provider;
+    const preset = PROVIDER_PRESETS[key];
+    if (!preset) return;
+    baseUrlInput.value = preset.baseUrl;
+    thinkingLevelSelect.value = preset.thinkingLevel || "off";
+    let matched = false;
+    for (const opt of modelSelect.options) {
+      if (opt.value === preset.model) {
+        modelSelect.value = preset.model;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      modelSelect.value = "__custom__";
+      modelInput.classList.remove("hidden");
+      modelInput.value = preset.model;
+    } else {
+      modelInput.classList.add("hidden");
+      modelInput.value = "";
+    }
+  });
+});
+
 toggleKeyBtn.addEventListener("click", () => {
   apiKeyInput.type = apiKeyInput.type === "text" ? "password" : "text";
+});
+toggleAsrKeyBtn.addEventListener("click", () => {
+  asrGroqApiKeyInput.type = asrGroqApiKeyInput.type === "text" ? "password" : "text";
 });
 themeToggleBtn.addEventListener("click", toggleTheme);
 targetLanguageSelect.addEventListener("change", updateCustomVisibility);
 testKeyBtn.addEventListener("click", testApiKey);
+testAsrBtn.addEventListener("click", testGroqAsr);
 listModelsBtn.addEventListener("click", fetchModelList);
 modelSelect.addEventListener("change", () => {
   if (modelSelect.value !== "__custom__") modelInput.value = "";
@@ -534,6 +640,22 @@ readLocalFontsBtn.addEventListener("click", readLocalFonts);
 exportSettingsBtn.addEventListener("click", exportSettings);
 importSettingsBtn.addEventListener("click", () => settingsImportFile.click());
 settingsImportFile.addEventListener("change", importSettingsFile);
+
+if (clearCacheBtn) {
+  clearCacheBtn.addEventListener("click", async () => {
+    if (!window.confirm("确定清理所有已缓存的字幕、翻译、概览与对话吗？\n（此操作将释放存储空间，不会删除您的笔记、设置或历史记录）")) {
+      return;
+    }
+    try {
+      const res = await send("clearCache", { type: "all_cache" });
+      settingsTransferStatus.textContent = `已清理 ${res.removedCount || 0} 项缓存数据`;
+      settingsTransferStatus.className = "hint ok";
+    } catch (err) {
+      settingsTransferStatus.textContent = err.message;
+      settingsTransferStatus.className = "hint error";
+    }
+  });
+}
 
 fontSearchInput.addEventListener("input", () => {
   populateFontOptions();
