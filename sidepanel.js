@@ -1,5 +1,5 @@
 /**
- * Bili Digest Plus 本地增强版侧边栏主脚本 (v0.5.0)。
+ * Bili Digest Plus 本地增强版侧边栏主脚本 (v0.5.1)。
  *
  * 关键特性与防护机制：
  * 1. 严格的异步请求代次校验 (Request Token) 与 bvid/cid 身份比对，杜绝跨视频/分 P 竞态；
@@ -1443,13 +1443,7 @@ async function loadOverview({ force = false } = {}) {
   overviewStatusEl.textContent = "";
 
   try {
-    if (!state.segments.length) {
-      overviewSkeletonStatus.textContent = "正在生成 AI 字幕…";
-      const ready = await generateAsrTranscript({ force: false });
-      if (!isCurrentTarget({ ...expected, cid: 0 }, "overviewReqToken")) return;
-      expected.cid = Number(state.video?.cid) || 0;
-      if (!ready || !state.segments.length) throw new Error("没有可用字幕");
-    }
+    if (!(await ensureTranscriptForOverview(expected))) return;
 
     overviewSkeletonStatus.textContent = "AI 正在深入精读与梳理概览…";
     const result = await send("generateOverview", {
@@ -1476,6 +1470,24 @@ async function loadOverview({ force = false } = {}) {
       overviewContentEl.classList.remove("hidden");
     }
   }
+}
+
+async function ensureTranscriptForOverview(expected) {
+  if (state.segments.length) return true;
+
+  overviewSkeletonStatus.textContent = "未检测到字幕，正在自动生成 AI 字幕…";
+  const ready = await generateAsrTranscript({ force: false });
+
+  // cid may be resolved by the ASR request. Ignore the old cid for the stale
+  // check, then bind the overview request to the resolved video part.
+  if (!isCurrentTarget({ ...expected, cid: 0 }, "overviewReqToken")) return false;
+  expected.cid = Number(state.video?.cid) || 0;
+  if (!ready || !state.segments.length) {
+    throw new Error("AI 字幕生成失败，无法继续生成概览");
+  }
+
+  overviewSkeletonStatus.textContent = `AI 字幕已就绪（${state.segments.length} 条），正在生成概览…`;
+  return true;
 }
 
 async function loadCachedOverview() {
@@ -2185,6 +2197,41 @@ function typographyFromControls() {
   return normalizeTypographySettings(input);
 }
 
+function readingAppearanceFromControls() {
+  return {
+    transcriptAutoFollow: transcriptAutoFollowCheckbox.checked,
+    showMarkButton: showMarkButtonCheckbox.checked,
+    showBrandText: showBrandTextCheckbox.checked,
+    ...typographyFromControls(),
+  };
+}
+
+let typographySaveTimer = null;
+let typographySaveSequence = 0;
+
+async function persistReadingAppearance() {
+  if (!state.settingsLoaded) return;
+  const sequence = ++typographySaveSequence;
+  typographyStatus.textContent = "正在保存阅读外观…";
+  typographyStatus.className = "hint";
+  try {
+    const res = await send("setSettings", { settings: readingAppearanceFromControls() });
+    if (sequence !== typographySaveSequence) return;
+    state.settings = res.settings;
+    typographyStatus.textContent = "✓ 阅读外观已自动保存";
+    typographyStatus.className = "hint ok";
+  } catch (error) {
+    if (sequence !== typographySaveSequence) return;
+    typographyStatus.textContent = `自动保存失败：${error.message}`;
+    typographyStatus.className = "hint error";
+  }
+}
+
+function queueReadingAppearanceSave({ immediate = false } = {}) {
+  clearTimeout(typographySaveTimer);
+  typographySaveTimer = setTimeout(persistReadingAppearance, immediate ? 0 : 280);
+}
+
 function setTypographyControls(input) {
   const settings = normalizeTypographySettings(input);
   populateFontOptions();
@@ -2261,6 +2308,8 @@ async function saveSettings() {
     const res = await send("setSettings", { settings });
     state.settings = res.settings;
     updateSettingsBadges();
+    typographyStatus.textContent = "✓ 所有设置已保存";
+    typographyStatus.className = "hint ok";
     showToast("设置已保存");
   } catch (err) {
     showToast(err.message, "error");
@@ -2819,7 +2868,15 @@ for (const input of [
   input.addEventListener("input", () => {
     setTypographyControls(typographyFromControls());
     updateSettingsBadges();
+    typographyStatus.textContent = "阅读外观有改动，正在自动保存…";
+    typographyStatus.className = "hint";
+    queueReadingAppearanceSave();
   });
+  input.addEventListener("change", () => queueReadingAppearanceSave({ immediate: true }));
+}
+
+for (const checkbox of [transcriptAutoFollowCheckbox, showMarkButtonCheckbox, showBrandTextCheckbox]) {
+  checkbox.addEventListener("change", () => queueReadingAppearanceSave({ immediate: true }));
 }
 
 fontSearchInput.addEventListener("input", () => {

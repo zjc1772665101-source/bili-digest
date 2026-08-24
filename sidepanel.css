@@ -433,6 +433,7 @@ body {
 
 .content {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   position: relative;
   display: flex;
@@ -443,8 +444,12 @@ body {
 .panel {
   display: none;
   flex-direction: column;
-  height: 100%;
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   min-width: 0;
 }
 
@@ -1007,6 +1012,7 @@ html[data-theme="dark"] .primary-btn:hover:not(:disabled) {
 }
 
 .chapter-title {
+  min-width: 0;
   font-weight: 600;
   color: var(--ink);
   overflow: hidden;
@@ -1014,10 +1020,31 @@ html[data-theme="dark"] .primary-btn:hover:not(:disabled) {
   white-space: nowrap;
 }
 
-.chapter-card:hover {
+.chapter-card:hover,
+.chapter-card:focus-visible {
+  z-index: 4;
+  align-items: flex-start;
   border-color: var(--accent);
   background: var(--surface-2);
   transform: translateY(-1px);
+}
+
+.chapter-card:hover .chapter-info,
+.chapter-card:focus-visible .chapter-info {
+  align-items: flex-start;
+}
+
+.chapter-card:hover .chapter-title,
+.chapter-card:focus-visible .chapter-title {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.chapter-card:hover .chapter-time,
+.chapter-card:focus-visible .chapter-time {
+  padding-top: 1px;
 }
 
 .chapter-card:active {
@@ -1639,12 +1666,13 @@ html[data-theme="dark"] .primary-btn:hover:not(:disabled) {
 /* ============ 设置折叠手风琴 ============ */
 
 #tab-settings {
-  padding: 12px 14px 48px;
+  padding: 12px 14px max(84px, calc(72px + env(safe-area-inset-bottom)));
   font-family: var(--settings-font-family);
   font-size: var(--settings-font-size);
 }
 
 .settings-accordion {
+  flex: 0 0 auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -1656,6 +1684,24 @@ html[data-theme="dark"] .primary-btn:hover:not(:disabled) {
 
 .settings-accordion:hover {
   box-shadow: var(--shadow-raised);
+}
+
+.settings-save-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 12px 14px max(12px, env(safe-area-inset-bottom));
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -8px 18px color-mix(in srgb, var(--paper) 82%, transparent);
+}
+
+.settings-save-footer .primary-btn {
+  width: 100%;
+  min-height: 40px;
 }
 
 .accordion-head {
@@ -1975,8 +2021,21 @@ select:focus {
     gap: 6px;
   }
   .typography-region-row {
-    grid-template-columns: 36px 1fr 50px 36px;
+    grid-template-columns: minmax(34px, auto) minmax(0, 1fr);
     gap: 4px;
+  }
+
+  .typography-region-row input[type="range"],
+  .typography-region-row output {
+    grid-column: 2;
+  }
+
+  #tab-settings {
+    padding-inline: 9px;
+  }
+
+  .settings-save-footer {
+    padding-inline: 9px;
   }
 }
 

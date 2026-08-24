@@ -1,5 +1,5 @@
 /**
- * Bili Digest 后台 Service Worker (v0.5.0 本地增强版)。
+ * Bili Digest 后台 Service Worker (v0.5.1 本地增强版)。
  *
  * 核心职能：
  * 1. 视频与分 P 上下文解析；
@@ -175,7 +175,10 @@ async function getSettings() {
 
 function mergeSettings(target, source) {
   if (!source || typeof source !== "object") return { ...target };
-  const normalizedTypography = normalizeTypographySettings(source);
+  // setSettings accepts partial updates (for example, typography autosave and
+  // imported backups). Normalize against the stored values so an omitted
+  // typography field is preserved instead of silently reverting to defaults.
+  const normalizedTypography = normalizeTypographySettings({ ...target, ...source });
   return {
     ...target,
     aiApiKey: typeof source.aiApiKey === "string" ? source.aiApiKey : target.aiApiKey,

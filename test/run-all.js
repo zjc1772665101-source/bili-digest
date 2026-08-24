@@ -66,7 +66,7 @@ function assert(condition, desc) {
 }
 
 console.log("\n=========================================");
-console.log("  Bili Digest Plus v0.5.0 测试套件运行");
+console.log("  Bili Digest Plus v0.5.1 测试套件运行");
 console.log("=========================================\n");
 
 // --- 1. 字幕与时间戳工具测试 ---
@@ -356,7 +356,16 @@ assert(sidepanelJs.includes("lastHistoryWriteAt") && sidepanelJs.includes("maybe
 assert(sidepanelJs.includes("HISTORY_WRITE_DISTANCE_SECONDS") && sidepanelJs.includes("HISTORY_WRITE_INTERVAL_MS"), "历史写回同时具备位置与时间阈值");
 assert(/finally \{\s*if \(isCurrentTarget\(expected, "asrReqToken"\)\)/.test(sidepanelJs), "ASR finally 仅在当前目标仍匹配时渲染空态");
 assert(sidepanelJs.includes('expected.cid = Number(state.video?.cid) || 0;'), "概览等待 ASR 后重新绑定当前 cid");
+assert(sidepanelJs.includes("ensureTranscriptForOverview(expected)"), "概览生成前统一确保字幕可用");
+assert(sidepanelJs.includes("await generateAsrTranscript({ force: false })"), "无字幕时概览会先自动生成 AI 字幕");
+assert(sidepanelJs.includes("queueReadingAppearanceSave"), "阅读外观支持自动持久化");
+assert(backgroundJs.includes("normalizeTypographySettings({ ...target, ...source })"), "部分设置更新会保留既有排版字段");
 assert(/finally \{\s*if \(isCurrentTarget\(expected, "overviewReqToken"\)\)/.test(sidepanelJs), "概览 finally 仅在当前目标仍匹配时更新 UI");
+
+const sidepanelCss = readFileSync(join(rootDir, "sidepanel.css"), "utf8");
+assert(sidepanelCss.includes(".chapter-card:hover .chapter-title"), "章节标题悬停时支持展开");
+assert(sidepanelCss.includes(".chapter-card:focus-visible .chapter-title"), "章节标题键盘聚焦时支持展开");
+assert(sidepanelCss.includes("overflow-wrap: anywhere"), "超长章节标题可安全换行显示完整内容");
 
 // 确保 sidepanel.js 中顶层显式声明了所有排版与缓存相关变量，杜绝 ReferenceError
 const requiredDeclarations = [
