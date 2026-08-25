@@ -358,6 +358,11 @@ assert(/finally \{\s*if \(isCurrentTarget\(expected, "asrReqToken"\)\)/.test(sid
 assert(sidepanelJs.includes('expected.cid = Number(state.video?.cid) || 0;'), "概览等待 ASR 后重新绑定当前 cid");
 assert(sidepanelJs.includes("ensureTranscriptForOverview(expected)"), "概览生成前统一确保字幕可用");
 assert(sidepanelJs.includes("await generateAsrTranscript({ force: false })"), "无字幕时概览会先自动生成 AI 字幕");
+assert(!sidepanelJs.includes("(incomingCid && previousCid && incomingCid !== previousCid)"), "同一 BV/分 P 的 cid 抖动不会被误判为视频切换");
+assert(sidepanelJs.includes("cid: previousCid || incomingCid"), "轮询优先保留后台已解析的稳定 cid");
+assert(sidepanelJs.includes("if (state.overviewGenerating) return;"), "概览生成支持防重入，标签切换不会使当前结果失效");
+assert(sidepanelJs.includes("state.overviewGenerating = true;"), "概览请求开始时会进入生成态");
+assert(sidepanelJs.includes("!targetChanged && (!movedEnough || !waitedEnough)"), "历史播放位置写回同时满足位移与时间双阈值");
 assert(sidepanelJs.includes("queueReadingAppearanceSave"), "阅读外观支持自动持久化");
 assert(backgroundJs.includes("normalizeTypographySettings({ ...target, ...source })"), "部分设置更新会保留既有排版字段");
 assert(/finally \{\s*if \(isCurrentTarget\(expected, "overviewReqToken"\)\)/.test(sidepanelJs), "概览 finally 仅在当前目标仍匹配时更新 UI");

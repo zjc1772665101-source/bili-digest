@@ -340,9 +340,13 @@ function cancelPendingRequests() {
   state.translating = false;
   state.explaining = false;
   state.polishing = false;
+  state.overviewGenerating = false;
 
   if (generateOverviewBtn) generateOverviewBtn.disabled = false;
-  if (regenerateOverviewBtn) regenerateOverviewBtn.classList.remove("spinning");
+  if (regenerateOverviewBtn) {
+    regenerateOverviewBtn.disabled = false;
+    regenerateOverviewBtn.classList.remove("spinning");
+  }
   if (overviewSkeleton) overviewSkeleton.classList.add("hidden");
   if (overviewContentEl) overviewContentEl.classList.remove("hidden");
   if (translationTrackEl) translationTrackEl.classList.add("hidden");
@@ -384,7 +388,9 @@ function maybeRecordHistoryPlayback(currentTime, expected) {
   const targetChanged = state.lastHistoryWriteTarget !== target;
   const movedEnough = targetChanged || Math.abs(currentTime - state.lastHistoryWriteSeconds) >= HISTORY_WRITE_DISTANCE_SECONDS;
   const waitedEnough = targetChanged || now - state.lastHistoryWriteAt >= HISTORY_WRITE_INTERVAL_MS;
-  if (!movedEnough && !waitedEnough) return;
+  // 同一视频只有“确实移动过”且“距离上次写入达到时间阈值”才落盘。
+  // 目标切换仍立即写入，避免 500ms 播放轮询把历史存储变成高频后台任务。
+  if (!targetChanged && (!movedEnough || !waitedEnough)) return;
 
   // 先更新 bookkeeping，再发请求，避免 500ms 轮询在请求未返回时重复写入。
   state.lastHistoryWriteTarget = target;
@@ -713,11 +719,12 @@ async function detectVideo() {
 
     const previousCid = Number(state.video?.cid) || 0;
     const incomingCid = Number(context.cid) || 0;
+    // 视频身份只由 BV + 分 P 决定。B站 SPA 的 cid 在初始化/切 P 后
+    // 可能短暂回报 0、旧值或新值，不能据此取消正在运行的 AI 概览。
     const changed =
       !state.video ||
       state.video.bvid !== context.bvid ||
-      Number(state.video.page || 1) !== Number(context.page || 1) ||
-      (incomingCid && previousCid && incomingCid !== previousCid);
+      Number(state.video.page || 1) !== Number(context.page || 1);
 
     if (changed) {
       cancelPendingRequests();
@@ -758,7 +765,8 @@ async function detectVideo() {
       state.video = {
         ...state.video,
         ...context,
-        cid: incomingCid || previousCid,
+        // 后台一旦解析出稳定 cid 就优先保留；只有尚未解析时才采用页面 cid。
+        cid: previousCid || incomingCid,
       };
       updateHeader();
       ensureAuthorMid();
@@ -1426,6 +1434,8 @@ async function loadOverview({ force = false } = {}) {
     renderEmpty(overviewContentEl, EMPTY_GLYPHS.overview, ["先打开一个 B站视频"], { glyphHtml: true });
     return;
   }
+  // 防止重复点击或标签切换产生第二个概览请求，把先前结果误判为过期。
+  if (state.overviewGenerating) return;
 
   const token = ++state.overviewReqToken;
   const expected = {
@@ -1436,7 +1446,9 @@ async function loadOverview({ force = false } = {}) {
     token,
   };
 
+  state.overviewGenerating = true;
   generateOverviewBtn.disabled = true;
+  regenerateOverviewBtn.disabled = true;
   regenerateOverviewBtn.classList.add("spinning");
   overviewSkeleton.classList.remove("hidden");
   overviewContentEl.classList.add("hidden");
@@ -1445,7 +1457,11 @@ async function loadOverview({ force = false } = {}) {
   try {
     if (!(await ensureTranscriptForOverview(expected))) return;
 
-    overviewSkeletonStatus.textContent = "AI 正在深入精读与梳理概览…";
+    const transcriptChars = state.segments.reduce(
+      (sum, segment) => sum + String(segment?.content || "").length,
+      0,
+    );
+    overviewSkeletonStatus.textContent = `AI 正在精读 ${state.segments.length} 条字幕（约 ${transcriptChars.toLocaleString()} 字）并生成概览…`;
     const result = await send("generateOverview", {
       bvid: state.video.bvid,
       cid: state.video.cid,
@@ -1464,7 +1480,9 @@ async function loadOverview({ force = false } = {}) {
     overviewStatusEl.textContent = `生成失败：${err.message}`;
   } finally {
     if (isCurrentTarget(expected, "overviewReqToken")) {
+      state.overviewGenerating = false;
       generateOverviewBtn.disabled = false;
+      regenerateOverviewBtn.disabled = false;
       regenerateOverviewBtn.classList.remove("spinning");
       overviewSkeleton.classList.add("hidden");
       overviewContentEl.classList.remove("hidden");
@@ -1491,6 +1509,8 @@ async function ensureTranscriptForOverview(expected) {
 }
 
 async function loadCachedOverview() {
+  // 生成中不要递增 overviewReqToken；否则正在返回的 AI 结果会被自己判旧。
+  if (state.overviewGenerating) return;
   if (!state.video?.bvid) {
     renderEmpty(overviewContentEl, EMPTY_GLYPHS.overview, ["先打开一个 B站视频"], { glyphHtml: true });
     return;
@@ -2334,7 +2354,7 @@ function switchTab(tab) {
 
   if (tab === "transcript") {
     scrollToActiveSegment();
-  } else if (tab === "overview" && !state.overview) {
+  } else if (tab === "overview" && !state.overview && !state.overviewGenerating) {
     loadCachedOverview();
   } else if (tab === "notes") {
     refreshNotes();
