@@ -19,6 +19,7 @@ import {
 } from "./lib/subtitle.js";
 import { encWbi, getMixinKey, extractWbiKey } from "./lib/wbi.js";
 import { buildNoteContext, segmentsToText } from "./lib/note-context.js";
+import { prepareOverviewTranscript } from "./lib/overview-input.js";
 import {
   TYPOGRAPHY_DEFAULTS,
   normalizeTypographySettings,
@@ -911,17 +912,36 @@ async function handleGenerateOverview({ bvid, cid, lan, segments, force = false 
     throw new Error("请先在设置中配置好 AI 接口");
   }
 
-  const transcript = segments
-    .map((segment) => `[${secondsToTimestamp(segment.from)}] ${segment.content}`)
-    .join("\n");
-  const prompt = await renderPrompt("analysis.md", { transcript });
-  let content = await requestAiCompletion(
-    config,
-    [{ role: "user", content: prompt }],
-    { json: true },
-  );
-  let parsed = parseLooseJson(content);
+  const overviewInput = prepareOverviewTranscript(segments);
+  const prompt = await renderPrompt("analysis.md", {
+    transcript: overviewInput.transcript,
+  });
 
+  let content;
+  try {
+    content = await requestAiCompletion(
+      config,
+      [{ role: "user", content: prompt }],
+      { json: true, timeoutMs: 180_000 },
+    );
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (message.includes("请求超时")) {
+      const inputDetail = overviewInput.compacted
+        ? `；原字幕约 ${overviewInput.originalChars.toLocaleString()} 字，已按时间轴压缩至约 ${overviewInput.includedChars.toLocaleString()} 字`
+        : `；本次字幕输入约 ${overviewInput.includedChars.toLocaleString()} 字`;
+      throw new Error(`${message}${inputDetail}`);
+    }
+    throw error;
+  }
+
+  const parseOverview = (text) => {
+    try {
+      return parseLooseJson(text);
+    } catch {
+      return null;
+    }
+  };
   const validChapterCount = (value) =>
     Array.isArray(value?.chapters)
       ? value.chapters.filter(
@@ -931,26 +951,38 @@ async function handleGenerateOverview({ bvid, cid, lan, segments, force = false 
         ).length
       : 0;
 
-  if (validChapterCount(parsed) < 4) {
+  let parsed = parseOverview(content);
+  // v0.5.2 会在章节少于 4 段时把完整字幕和第一次回答整包再请求一次。
+  // 长视频最坏会额外再等一个完整超时周期。现在只有 JSON 无法解析或完全没有
+  // 有效章节时才做一次轻量修复，并且只带 6000 字的时间轴摘录。
+  if (!parsed || validChapterCount(parsed) === 0) {
     try {
-      content = await requestAiCompletion(
+      const repairInput = prepareOverviewTranscript(segments, 6_000);
+      const repairPrompt = [
+        "下面的 AI 概览输出不是可直接使用的完整 JSON。请修复为合法 JSON，只输出 JSON，不要解释。",
+        '结构：{"summary":"...","chapters":[{"title":"...","time":0}],"key_points":["..."],"key_quotes":[{"text":"字幕原文","time":0}]}',
+        "章节至少 4 段并覆盖从开头到结尾；time 使用数字秒数或 mm:ss。",
+        "",
+        "上一次输出：",
+        String(content).slice(0, 8_000),
+        "",
+        "时间轴字幕摘录：",
+        repairInput.transcript,
+      ].join("\n");
+      const repaired = await requestAiCompletion(
         config,
-        [
-          { role: "user", content: prompt },
-          { role: "assistant", content },
-          {
-            role: "user",
-            content:
-              "刚才的章节太少。请重新输出完整 JSON：章节至少 6 段、从头到尾覆盖全片，time 用数字秒数或 mm:ss，对应该段第一条字幕的真实起始时间。",
-          },
-        ],
-        { json: true },
+        [{ role: "user", content: repairPrompt }],
+        { json: true, timeoutMs: 60_000 },
       );
-      parsed = parseLooseJson(content);
-    } catch {
-      // 容错：使用第一次生成的结果
+      parsed = parseOverview(repaired) || parsed;
+    } catch (repairError) {
+      if (!parsed) throw repairError;
     }
   }
+  if (!parsed) {
+    throw new Error("AI 返回内容不是有效 JSON");
+  }
+
   const keyPoints = Array.isArray(parsed?.key_points)
     ? parsed.key_points
     : Array.isArray(parsed?.keyPoints)
