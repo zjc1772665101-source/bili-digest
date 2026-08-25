@@ -1,5 +1,5 @@
 /**
- * Bili Digest Plus 本地增强版侧边栏主脚本 (v0.5.4)。
+ * Bili Digest Plus 本地增强版侧边栏主脚本 (v0.5.5)。
  *
  * 关键特性与防护机制：
  * 1. 严格的异步请求代次校验 (Request Token) 与 bvid/cid 身份比对，杜绝跨视频/分 P 竞态；
@@ -39,6 +39,13 @@ import {
   requestLocalFontList,
 } from "./lib/typography.js";
 import { createSettingsBackup, parseSettingsBackup } from "./lib/settings-transfer.js";
+import {
+  NAV_TAB_IDS,
+  NAV_TAB_LABELS,
+  NAVIGATION_DEFAULTS,
+  normalizeNavigationSettings,
+  visibleNavigationTabs,
+} from "./lib/navigation.js";
 
 const DEBUG = false;
 const debugLog = (...args) => {
@@ -81,6 +88,7 @@ const state = {
     showMarkButton: true,
     showBrandText: true,
     transcriptAutoFollow: true,
+    ...NAVIGATION_DEFAULTS,
     ...TYPOGRAPHY_DEFAULTS,
   },
   settingsLoaded: false,
@@ -96,6 +104,8 @@ const state = {
   chatLoaded: false,
   chatSending: false,
   currentTab: "transcript",
+  navigationStartupApplied: false,
+  navigationSaveSequence: 0,
 
   // 宿主标签页绑定
   hostTabId: null,
@@ -216,6 +226,7 @@ const sendChatBtn = $("sendChatBtn");
 // 设置相关 DOM
 const aiConfigBadge = $("aiConfigBadge");
 const groqConfigBadge = $("groqConfigBadge");
+const navigationConfigBadge = $("navigationConfigBadge");
 const typographyConfigBadge = $("typographyConfigBadge");
 const translationConfigBadge = $("translationConfigBadge");
 
@@ -243,6 +254,11 @@ const customLanguageGroup = $("customLanguageGroup");
 const saveSettingsBtn = $("saveSettingsBtn");
 const savedHint = $("savedHint");
 const openFullOptionsBtn = $("openFullOptionsBtn");
+const navLayoutList = $("navLayoutList");
+const navDefaultTabSelect = $("navDefaultTabSelect");
+const navRememberLastTabCheckbox = $("navRememberLastTabCheckbox");
+const navResetLayoutBtn = $("navResetLayoutBtn");
+const navLayoutStatus = $("navLayoutStatus");
 
 // 侧栏排版控制器
 const readingFontPresetSelect = $("readingFontPresetSelect");
@@ -2148,8 +2164,15 @@ async function loadSettings() {
     transcriptAutoFollowCheckbox.checked = state.settings.transcriptAutoFollow !== false;
     updateCustomVisibility();
     setTypographyControls(state.settings);
-    updateSettingsBadges();
     state.settingsLoaded = true;
+    renderNavigationEditor(state.settings);
+    const firstNavigationLoad = !state.navigationStartupApplied;
+    applyNavigationLayout(state.settings, { ensureActive: !firstNavigationLoad });
+    updateSettingsBadges();
+    if (firstNavigationLoad) {
+      state.navigationStartupApplied = true;
+      await restoreStartupNavigationTab();
+    }
   } catch (error) {
     showToast(error.message, "error");
   }
@@ -2173,6 +2196,10 @@ function updateSettingsBadges() {
     groqConfigBadge.className = "accordion-badge";
   }
 
+  const navigation = normalizeNavigationSettings(state.settings);
+  if (navigationConfigBadge) {
+    navigationConfigBadge.textContent = `${visibleNavigationTabs(navigation).length}/${NAV_TAB_IDS.length} 显示`;
+  }
   typographyConfigBadge.textContent = `${readingFontSizeRange.value}px`;
   translationConfigBadge.textContent = targetLanguageSelect.value;
 }
@@ -2307,6 +2334,179 @@ function populateFontOptions() {
   }
 }
 
+function navigationSettingsFromEditor() {
+  const fallback = normalizeNavigationSettings(state.settings);
+  if (!navLayoutList) return fallback;
+
+  const rows = Array.from(navLayoutList.querySelectorAll(".nav-layout-item"));
+  if (!rows.length) return fallback;
+
+  const navTabOrder = rows.map((row) => String(row.dataset.tab || "")).filter(Boolean);
+  const navHiddenTabs = rows
+    .filter((row) => {
+      const id = String(row.dataset.tab || "");
+      const checkbox = row.querySelector("[data-nav-visible]");
+      return id !== "settings" && checkbox && !checkbox.checked;
+    })
+    .map((row) => String(row.dataset.tab || ""))
+    .filter(Boolean);
+
+  return normalizeNavigationSettings({
+    ...fallback,
+    navTabOrder,
+    navHiddenTabs,
+    navDefaultTab: navDefaultTabSelect?.value || fallback.navDefaultTab,
+    navRememberLastTab: navRememberLastTabCheckbox?.checked ?? fallback.navRememberLastTab,
+  });
+}
+
+function renderNavigationEditor(input = state.settings) {
+  if (!navLayoutList || !navDefaultTabSelect || !navRememberLastTabCheckbox) return;
+  const config = normalizeNavigationSettings(input);
+  navLayoutList.replaceChildren();
+
+  config.navTabOrder.forEach((id, index) => {
+    const row = document.createElement("div");
+    row.className = "nav-layout-item";
+    row.dataset.tab = id;
+    row.draggable = true;
+
+    const handle = document.createElement("span");
+    handle.className = "nav-layout-drag-handle";
+    handle.textContent = "拖动";
+    handle.title = "按住拖动调整顺序";
+    row.appendChild(handle);
+
+    const name = document.createElement("span");
+    name.className = "nav-layout-name";
+    name.textContent = NAV_TAB_LABELS[id] || id;
+    row.appendChild(name);
+
+    const visibleLabel = document.createElement("label");
+    visibleLabel.className = "nav-layout-visible";
+    const visibleInput = document.createElement("input");
+    visibleInput.type = "checkbox";
+    visibleInput.dataset.navVisible = "true";
+    visibleInput.checked = !config.navHiddenTabs.includes(id);
+    visibleInput.disabled = id === "settings";
+    if (id === "settings") visibleInput.title = "设置页签始终显示";
+    const visibleText = document.createElement("span");
+    visibleText.textContent = "显示";
+    visibleLabel.append(visibleInput, visibleText);
+    row.appendChild(visibleLabel);
+
+    for (const [direction, label, disabled] of [
+      ["up", "上移", index === 0],
+      ["down", "下移", index === config.navTabOrder.length - 1],
+    ]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ghost-btn nav-layout-move";
+      button.dataset.navMove = direction;
+      button.textContent = label;
+      button.disabled = disabled;
+      row.appendChild(button);
+    }
+
+    navLayoutList.appendChild(row);
+  });
+
+  const visibleTabs = visibleNavigationTabs(config);
+  navDefaultTabSelect.replaceChildren();
+  for (const id of visibleTabs) {
+    const option = document.createElement("option");
+    option.value = id;
+    option.textContent = NAV_TAB_LABELS[id] || id;
+    navDefaultTabSelect.appendChild(option);
+  }
+  navDefaultTabSelect.value = visibleTabs.includes(config.navDefaultTab)
+    ? config.navDefaultTab
+    : visibleTabs[0] || "settings";
+  navRememberLastTabCheckbox.checked = config.navRememberLastTab;
+
+  if (navigationConfigBadge) {
+    navigationConfigBadge.textContent = `${visibleTabs.length}/${NAV_TAB_IDS.length} 显示`;
+  }
+}
+
+function applyNavigationLayout(input = state.settings, { ensureActive = true } = {}) {
+  const config = normalizeNavigationSettings(input);
+  const nav = document.querySelector(".tabs");
+  if (!nav) return config;
+
+  for (const id of config.navTabOrder) {
+    const button = $(`tab-btn-${id}`);
+    if (button) nav.appendChild(button);
+  }
+  for (const id of NAV_TAB_IDS) {
+    const button = $(`tab-btn-${id}`);
+    if (!button) continue;
+    const hidden = config.navHiddenTabs.includes(id);
+    button.classList.toggle("hidden", hidden);
+    button.setAttribute("aria-hidden", String(hidden));
+  }
+
+  if (ensureActive) {
+    const visible = visibleNavigationTabs(config);
+    if (!visible.includes(state.currentTab)) {
+      switchTab(config.navDefaultTab, { persist: false });
+    }
+  }
+  return config;
+}
+
+async function restoreStartupNavigationTab() {
+  const config = normalizeNavigationSettings(state.settings);
+  const visible = visibleNavigationTabs(config);
+  let target = config.navDefaultTab;
+  if (config.navRememberLastTab) {
+    try {
+      const { lastActiveTab } = await chrome.storage.local.get("lastActiveTab");
+      if (visible.includes(lastActiveTab)) target = lastActiveTab;
+    } catch {}
+  }
+  switchTab(target, { persist: false });
+}
+
+async function persistNavigationLayout(candidate = navigationSettingsFromEditor()) {
+  if (!state.settingsLoaded) return;
+  const sequence = ++state.navigationSaveSequence;
+  const config = normalizeNavigationSettings(candidate);
+  applyNavigationLayout(config);
+  if (navLayoutStatus) {
+    navLayoutStatus.textContent = "正在保存页签布局…";
+    navLayoutStatus.className = "hint";
+  }
+
+  try {
+    const res = await send("setSettings", { settings: config });
+    if (sequence !== state.navigationSaveSequence) return;
+    state.settings = res.settings;
+    renderNavigationEditor(state.settings);
+    applyNavigationLayout(state.settings);
+    updateSettingsBadges();
+    if (navLayoutStatus) {
+      navLayoutStatus.textContent = "页签布局已自动保存";
+      navLayoutStatus.className = "hint ok";
+    }
+  } catch (error) {
+    if (sequence !== state.navigationSaveSequence) return;
+    renderNavigationEditor(state.settings);
+    applyNavigationLayout(state.settings);
+    if (navLayoutStatus) {
+      navLayoutStatus.textContent = `页签布局保存失败：${error.message}`;
+      navLayoutStatus.className = "hint error";
+    }
+  }
+}
+
+function commitNavigationEditorChange() {
+  const candidate = navigationSettingsFromEditor();
+  renderNavigationEditor(candidate);
+  applyNavigationLayout(candidate);
+  persistNavigationLayout(candidate);
+}
+
 async function saveSettings() {
   const modelVal = modelSelect.value === "__custom__" ? modelInput.value.trim() : modelSelect.value;
   const settings = {
@@ -2322,6 +2522,7 @@ async function saveSettings() {
     showMarkButton: showMarkButtonCheckbox.checked,
     showBrandText: showBrandTextCheckbox.checked,
     transcriptAutoFollow: transcriptAutoFollowCheckbox.checked,
+    ...navigationSettingsFromEditor(),
     ...typographyFromControls(),
   };
   try {
@@ -2340,27 +2541,40 @@ async function saveSettings() {
 // 标签页切换与键盘无障碍
 // ============================================================
 
-function switchTab(tab) {
-  state.currentTab = tab;
+function switchTab(tab, { persist = true } = {}) {
+  const config = normalizeNavigationSettings(state.settings);
+  const visible = visibleNavigationTabs(config);
+  const target = visible.includes(tab)
+    ? tab
+    : visible.includes(config.navDefaultTab)
+      ? config.navDefaultTab
+      : visible[0] || "settings";
+
+  state.currentTab = target;
   document.querySelectorAll(".tabs .tab").forEach((btn) => {
-    const isActive = btn.dataset.tab === tab;
+    const isActive = btn.dataset.tab === target;
     btn.classList.toggle("active", isActive);
     btn.setAttribute("aria-selected", String(isActive));
     btn.setAttribute("tabindex", isActive ? "0" : "-1");
   });
   document.querySelectorAll(".panel").forEach((panel) => {
-    panel.classList.toggle("active", panel.id === `tab-${tab}`);
+    panel.classList.toggle("active", panel.id === `tab-${target}`);
   });
 
-  if (tab === "transcript") {
+  if (persist && state.settingsLoaded && config.navRememberLastTab) {
+    chrome.storage.local.set({ lastActiveTab: target }).catch(() => {});
+  }
+  document.dispatchEvent(new CustomEvent("bili-digest:tabchange", { detail: { tab: target } }));
+
+  if (target === "transcript") {
     scrollToActiveSegment();
-  } else if (tab === "overview" && !state.overview && !state.overviewGenerating) {
+  } else if (target === "overview" && !state.overview && !state.overviewGenerating) {
     loadCachedOverview();
-  } else if (tab === "notes") {
+  } else if (target === "notes") {
     refreshNotes();
-  } else if (tab === "chat" && !state.chatLoaded) {
+  } else if (target === "chat" && !state.chatLoaded) {
     loadChat();
-  } else if (tab === "settings" && !state.settingsLoaded) {
+  } else if (target === "settings" && !state.settingsLoaded) {
     loadSettings();
   }
 }
@@ -2423,15 +2637,21 @@ function updateCustomVisibility() {
 
 // 1. 顶层 Tab 切换与方向键导航
 const tabButtons = Array.from(document.querySelectorAll(".tabs .tab"));
-tabButtons.forEach((btn, idx) => {
+const visibleTabButtons = () => tabButtons.filter((button) => !button.classList.contains("hidden"));
+tabButtons.forEach((btn) => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
   btn.addEventListener("keydown", (e) => {
+    const visible = visibleTabButtons();
+    const idx = visible.indexOf(btn);
+    if (idx < 0 || !visible.length) return;
     if (e.key === "ArrowRight") {
-      const next = tabButtons[(idx + 1) % tabButtons.length];
+      e.preventDefault();
+      const next = visible[(idx + 1) % visible.length];
       next.focus();
       switchTab(next.dataset.tab);
     } else if (e.key === "ArrowLeft") {
-      const prev = tabButtons[(idx - 1 + tabButtons.length) % tabButtons.length];
+      e.preventDefault();
+      const prev = visible[(idx - 1 + visible.length) % visible.length];
       prev.focus();
       switchTab(prev.dataset.tab);
     }
@@ -2752,6 +2972,63 @@ exportNotesBtn.addEventListener("click", () => {
 
 // 7. 设置
 saveSettingsBtn.addEventListener("click", saveSettings);
+
+navDefaultTabSelect?.addEventListener("change", commitNavigationEditorChange);
+navRememberLastTabCheckbox?.addEventListener("change", commitNavigationEditorChange);
+navResetLayoutBtn?.addEventListener("click", () => {
+  const defaults = normalizeNavigationSettings(NAVIGATION_DEFAULTS);
+  renderNavigationEditor(defaults);
+  applyNavigationLayout(defaults);
+  persistNavigationLayout(defaults);
+});
+
+navLayoutList?.addEventListener("change", (event) => {
+  if (event.target?.matches?.("[data-nav-visible]")) commitNavigationEditorChange();
+});
+
+navLayoutList?.addEventListener("click", (event) => {
+  const button = event.target?.closest?.("[data-nav-move]");
+  if (!button) return;
+  const row = button.closest(".nav-layout-item");
+  if (!row) return;
+  if (button.dataset.navMove === "up" && row.previousElementSibling) {
+    navLayoutList.insertBefore(row, row.previousElementSibling);
+  } else if (button.dataset.navMove === "down" && row.nextElementSibling) {
+    navLayoutList.insertBefore(row.nextElementSibling, row);
+  } else {
+    return;
+  }
+  commitNavigationEditorChange();
+});
+
+let draggedNavigationRow = null;
+navLayoutList?.addEventListener("dragstart", (event) => {
+  const row = event.target?.closest?.(".nav-layout-item");
+  if (!row) return;
+  draggedNavigationRow = row;
+  row.classList.add("dragging");
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(row.dataset.tab || ""));
+  }
+});
+
+navLayoutList?.addEventListener("dragover", (event) => {
+  if (!draggedNavigationRow) return;
+  event.preventDefault();
+  const target = event.target?.closest?.(".nav-layout-item");
+  if (!target || target === draggedNavigationRow) return;
+  const rect = target.getBoundingClientRect();
+  const insertAfter = event.clientY > rect.top + rect.height / 2;
+  navLayoutList.insertBefore(draggedNavigationRow, insertAfter ? target.nextSibling : target);
+});
+
+navLayoutList?.addEventListener("dragend", () => {
+  if (!draggedNavigationRow) return;
+  draggedNavigationRow.classList.remove("dragging");
+  draggedNavigationRow = null;
+  commitNavigationEditorChange();
+});
 testKeyBtn.addEventListener("click", async () => {
   keyTestResultEl.textContent = "正在测试连接…";
   keyTestResultEl.className = "hint";

@@ -7,6 +7,7 @@ import {
   formatCompactNumber,
   mergeUniqueComments,
   normalizeComment,
+  sortRootComments,
 } from "./lib/comments-util.js";
 
 const ROOT_PAGE_DELAY_MS = 260;
@@ -19,7 +20,8 @@ const state = {
   aid: 0,
   upperMid: 0,
   title: "",
-  mode: 3,
+  mode: 2,
+  sortMode: "weighted",
   rootOffset: "",
   rootEnded: false,
   rootTotal: 0,
@@ -241,7 +243,7 @@ function normalizeRoot(raw) {
   return { root, previewReplies };
 }
 
-async function fetchRootPage({ offset = "", mode = state.mode, signal } = {}) {
+async function fetchRootPage({ offset = "", mode = 2, signal } = {}) {
   const params = {
     type: 1,
     oid: state.aid,
@@ -416,10 +418,20 @@ function updateBrowseStatus() {
     setStatus(
       `已加载 ${state.roots.length}${totalPart} 条一级评论，并索引 ${previewCount} 条回复预览；当前命中 ${matches} 条。要覆盖全部回复，请使用“搜索所有评论”。`,
     );
-  } else if (state.rootEnded) {
-    setStatus(`已加载全部 ${state.roots.length} 条可见一级评论`);
   } else {
-    setStatus(`已加载 ${state.roots.length}${totalPart} 条一级评论，继续向下滚动会自动加载`);
+    const rankingLabel = {
+      weighted: "综合热度",
+      likes: "点赞最多",
+      replies: "回复最多",
+      latest: "最新",
+    }[state.sortMode] || "综合热度";
+    if (state.rootEnded) {
+      setStatus(`${rankingLabel}：已覆盖全部 ${state.roots.length} 条可见一级评论`);
+    } else if (state.sortMode === "latest") {
+      setStatus(`最新：已加载 ${state.roots.length}${totalPart} 条一级评论，继续向下滚动会自动加载`);
+    } else {
+      setStatus(`${rankingLabel}：基于已加载 ${state.roots.length}${totalPart} 条一级评论实时排序；继续向下滚动会扩大排名范围`);
+    }
   }
 }
 
@@ -714,7 +726,8 @@ function renderBrowse() {
     renderEmpty("暂无可显示的一级评论");
     return;
   }
-  for (const root of state.roots) {
+  const orderedRoots = sortRootComments(state.roots, state.sortMode);
+  for (const root of orderedRoots) {
     listEl.appendChild(
       createCommentCard(root, {
         root: true,
@@ -781,15 +794,11 @@ function handleSearchInput() {
 
 async function handleSortChange() {
   stopExhaustiveSearch({ quiet: true });
-  state.mode = Number(sortSelect.value) === 2 ? 2 : 3;
-  state.rootOffset = "";
-  state.rootEnded = false;
-  state.rootTotal = 0;
-  state.roots = [];
-  state.loadedIndex = [];
-  state.threadViews.clear();
+  state.sortMode = ["weighted", "likes", "replies", "latest"].includes(sortSelect.value)
+    ? sortSelect.value
+    : "weighted";
   render();
-  await loadNextRootPage();
+  updateBrowseStatus();
 }
 
 function initInfiniteScroll() {
@@ -801,15 +810,22 @@ function initInfiniteScroll() {
   }, { passive: true });
 }
 
+async function activateCommentsTab() {
+  try {
+    const ok = await ensureVideo();
+    if (ok && !state.roots.length) await loadNextRootPage();
+  } catch (error) {
+    setStatus(`评论区初始化失败：${error.message}`, true);
+  }
+}
+
 function bindEvents() {
-  tabBtn.addEventListener("click", async () => {
-    try {
-      const ok = await ensureVideo();
-      if (ok && !state.roots.length) await loadNextRootPage();
-    } catch (error) {
-      setStatus(`评论区初始化失败：${error.message}`, true);
-    }
+  // sidepanel.js owns tab button clicks and broadcasts one canonical tabchange event.
+  // Listening to both click and tabchange would initialize comments twice on one click.
+  document.addEventListener("bili-digest:tabchange", (event) => {
+    if (event?.detail?.tab === "comments") activateCommentsTab();
   });
+  if (tabBtn.classList.contains("active")) activateCommentsTab();
 
   searchInput.addEventListener("input", handleSearchInput);
   searchInput.addEventListener("keydown", (event) => {

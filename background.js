@@ -1,5 +1,5 @@
 /**
- * Bili Digest 后台 Service Worker (v0.5.4 本地增强版)。
+ * Bili Digest 后台 Service Worker (v0.5.5 本地增强版)。
  *
  * 核心职能：
  * 1. 视频与分 P 上下文解析；
@@ -24,6 +24,10 @@ import {
   normalizeTypographySettings,
   normalizeShowBrandText,
 } from "./lib/typography.js";
+import {
+  NAVIGATION_DEFAULTS,
+  normalizeNavigationSettings,
+} from "./lib/navigation.js";
 import {
   normalizeProviderConfig,
   migrateLegacySettings,
@@ -52,6 +56,7 @@ const DEFAULT_SETTINGS = {
   showMarkButton: true,
   showBrandText: true,
   transcriptAutoFollow: true,
+  ...NAVIGATION_DEFAULTS,
   ...TYPOGRAPHY_DEFAULTS,
 };
 
@@ -178,7 +183,9 @@ function mergeSettings(target, source) {
   // setSettings accepts partial updates (for example, typography autosave and
   // imported backups). Normalize against the stored values so an omitted
   // typography field is preserved instead of silently reverting to defaults.
-  const normalizedTypography = normalizeTypographySettings({ ...target, ...source });
+  const mergedSource = { ...target, ...source };
+  const normalizedTypography = normalizeTypographySettings(mergedSource);
+  const normalizedNavigation = normalizeNavigationSettings(mergedSource);
   return {
     ...target,
     aiApiKey: typeof source.aiApiKey === "string" ? source.aiApiKey : target.aiApiKey,
@@ -193,6 +200,7 @@ function mergeSettings(target, source) {
     showMarkButton: typeof source.showMarkButton === "boolean" ? source.showMarkButton : target.showMarkButton,
     showBrandText: normalizeShowBrandText(source.showBrandText, target.showBrandText),
     transcriptAutoFollow: typeof source.transcriptAutoFollow === "boolean" ? source.transcriptAutoFollow : target.transcriptAutoFollow,
+    ...normalizedNavigation,
     ...normalizedTypography,
   };
 }

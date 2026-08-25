@@ -5,6 +5,8 @@ import {
   commentMatches,
   mergeUniqueComments,
   normalizeComment,
+  sortRootComments,
+  weightedCommentScore,
 } from "../lib/comments-util.js";
 
 const rawRoot = {
@@ -70,6 +72,29 @@ assert.deepEqual(
   collectRootCandidates(rootCandidatesData, { mode: 3, firstPage: false }).map((item) => String(item.rpid)),
   ["500", "400"],
 );
+
+const rankingSample = [
+  { rpid: "A", like: 1200, replyCount: 8, ctime: 100 },
+  { rpid: "B", like: 850, replyCount: 120, ctime: 200 },
+  { rpid: "C", like: 180, replyCount: 260, ctime: 300 },
+];
+const rankingOriginal = rankingSample.map((item) => item.rpid);
+const rankingMaxLikes = Math.max(...rankingSample.map((item) => item.like));
+const rankingMaxReplies = Math.max(...rankingSample.map((item) => item.replyCount));
+assert.ok(
+  weightedCommentScore(rankingSample[1], {
+    maxLikes: rankingMaxLikes,
+    maxReplies: rankingMaxReplies,
+  }) > weightedCommentScore(rankingSample[0], {
+    maxLikes: rankingMaxLikes,
+    maxReplies: rankingMaxReplies,
+  }),
+);
+assert.deepEqual(sortRootComments(rankingSample, "weighted").map((item) => item.rpid), ["B", "A", "C"]);
+assert.deepEqual(sortRootComments(rankingSample, "likes").map((item) => item.rpid), ["A", "B", "C"]);
+assert.deepEqual(sortRootComments(rankingSample, "replies").map((item) => item.rpid), ["C", "B", "A"]);
+assert.deepEqual(sortRootComments(rankingSample, "latest").map((item) => item.rpid), ["C", "B", "A"]);
+assert.deepEqual(rankingSample.map((item) => item.rpid), rankingOriginal);
 
 assert.equal(childPageCount(0), 0);
 assert.equal(childPageCount(1), 1);

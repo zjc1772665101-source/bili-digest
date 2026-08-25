@@ -2268,3 +2268,90 @@ select:focus {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* ============ 顶部页签布局设置 ============ */
+
+.nav-layout-list {
+  display: grid;
+  gap: 7px;
+  margin: 8px 0 12px;
+}
+
+.nav-layout-item {
+  display: grid;
+  grid-template-columns: auto minmax(52px, 1fr) auto auto auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+.nav-layout-item:hover,
+.nav-layout-item.drag-over {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.nav-layout-item.dragging {
+  opacity: 0.5;
+}
+
+.nav-layout-drag-handle {
+  color: var(--ink-3);
+  font-size: 11px;
+  cursor: grab;
+  user-select: none;
+}
+
+.nav-layout-item:active .nav-layout-drag-handle {
+  cursor: grabbing;
+}
+
+.nav-layout-name {
+  min-width: 0;
+  font-weight: 650;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-layout-visible {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  color: var(--ink-2);
+  font-size: var(--type-meta-size);
+}
+
+.nav-layout-visible input {
+  margin: 0;
+}
+
+.nav-layout-move {
+  padding: 3px 7px;
+  min-width: 0;
+  font-size: 11px;
+}
+
+.nav-layout-options {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+@media (max-width: 360px) {
+  .nav-layout-item {
+    grid-template-columns: auto minmax(44px, 1fr) auto;
+  }
+
+  .nav-layout-move {
+    display: none;
+  }
+}

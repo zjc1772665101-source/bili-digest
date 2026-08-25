@@ -66,7 +66,7 @@ function assert(condition, desc) {
 }
 
 console.log("\n=========================================");
-console.log("  Bili Digest Plus v0.5.4 测试套件运行");
+console.log("  Bili Digest Plus v0.5.5 测试套件运行");
 console.log("=========================================\n");
 
 // --- 1. 字幕与时间戳工具测试 ---
@@ -147,18 +147,30 @@ assert(
 // --- 3. 设置、排版与备份测试 ---
 console.log("\n--- 3. 设置与排版 (typography.js & settings-transfer.js) ---");
 assert(TRANSFERABLE_SETTING_KEYS.includes("transcriptAutoFollow"), "白名单包含 transcriptAutoFollow");
+assert(TRANSFERABLE_SETTING_KEYS.includes("navTabOrder"), "设置备份包含页签顺序");
+assert(TRANSFERABLE_SETTING_KEYS.includes("navHiddenTabs"), "设置备份包含页签显隐");
+assert(TRANSFERABLE_SETTING_KEYS.includes("navDefaultTab"), "设置备份包含默认页签");
+assert(TRANSFERABLE_SETTING_KEYS.includes("navRememberLastTab"), "设置备份包含记住上次页签开关");
 
 const sampleSettings = {
   ...TYPOGRAPHY_DEFAULTS,
   aiApiKey: "sk-secret-test-key",
   readingFontSize: 16,
   transcriptAutoFollow: true,
+  navTabOrder: ["comments", "transcript", "overview", "chat", "notes", "settings"],
+  navHiddenTabs: ["chat"],
+  navDefaultTab: "comments",
+  navRememberLastTab: false,
 };
 
 const backupNoKey = createSettingsBackup(sampleSettings, { includeApiKey: false });
 const parsedNoKey = parseSettingsBackup(backupNoKey);
 assert(!parsedNoKey.includesApiKey && parsedNoKey.settings.aiApiKey === undefined, "导出默认安全排除 API Key");
 assert(parsedNoKey.settings.transcriptAutoFollow === true, "备份完整保留 transcriptAutoFollow");
+assert(parsedNoKey.settings.navTabOrder?.[0] === "comments", "备份完整保留页签顺序");
+assert(parsedNoKey.settings.navHiddenTabs?.includes("chat"), "备份完整保留页签显隐");
+assert(parsedNoKey.settings.navDefaultTab === "comments", "备份完整保留默认页签");
+assert(parsedNoKey.settings.navRememberLastTab === false, "备份完整保留记住页签开关");
 
 const backupWithKey = createSettingsBackup(sampleSettings, { includeApiKey: true });
 const parsedWithKey = parseSettingsBackup(backupWithKey);
@@ -340,12 +352,23 @@ assert(commentsJs.includes('/x/v2/reply/wbi/main'), "评论浏览使用 WBI 游�
 assert(commentsJs.includes('/x/v2/reply/reply'), "完整评论搜索逐页读取楼中楼回复");
 assert(commentsJs.includes('fetchAllChildren(root, controller.signal'), "搜索所有评论会为有回复的一级评论读取完整回复");
 assert(commentsJs.includes('mode: 2, signal: controller.signal'), "全量搜索按时间游标扫描，避免只遍历热评展示集");
-assert(sidepanelHtml.includes('<option value="3">最热</option>'), "评论排序名称与 B站网页一致使用最热");
+assert(sidepanelHtml.includes('<option value="weighted">综合热度</option>'), "评论默认提供透明的综合热度排序");
+assert(sidepanelHtml.includes('<option value="likes">点赞最多</option>'), "评论提供点赞最多排序");
+assert(sidepanelHtml.includes('<option value="replies">回复最多</option>'), "评论提供回复最多排序");
+assert(!sidepanelHtml.includes('<option value="3">最热</option>'), "评论不再暴露 B站黑箱最热排序");
 assert(commentsJs.includes('collectRootCandidates(data, { mode, firstPage: !offset })'), "评论浏览按当前 WBI top/hots/replies 结构组合");
 assert(!commentsJs.includes('data?.upper?.top'), "不再读取错误的 upper.top 置顶路径");
 assert(commentsJs.includes('onPage?.(first.replies'), "楼中楼按页流式回传搜索结果");
 assert(commentsJs.includes('appendProgressiveSearchItems'), "全量搜索支持命中即显示");
 assert(commentsJs.includes('addExhaustiveComments(replies)'), "楼中楼每页结果即时进入全量搜索索引");
+assert(commentsJs.includes('bili-digest:tabchange'), "评论可响应程序化页签激活事件");
+assert(!commentsJs.includes('tabBtn.addEventListener("click", activateCommentsTab)'), "评论初始化只走统一 tabchange 事件，避免一次点击重复请求");
+assert(commentsJs.includes('sortRootComments(state.roots, state.sortMode)'), "一级评论浏览使用客户端透明排序");
+assert(commentsJs.includes('mode: 2'), "评论排行统一从时间游标源加载，避免依赖 B站热评黑箱");
+assert(sidepanelHtml.includes('id="accordionNavigation"'), "设置页包含顶部页签布局区域");
+assert(sidepanelHtml.includes('id="navLayoutList"'), "设置页提供页签顺序编辑列表");
+assert(sidepanelHtml.includes('id="navDefaultTabSelect"'), "设置页支持默认页签");
+assert(sidepanelHtml.includes('id="navRememberLastTabCheckbox"'), "设置页支持记住上次页签");
 assert(commentsJs.includes('exhaustiveSeenRpids: new Set()'), "全量搜索使用 Set 增量去重，避免索引反复复制");
 
 // 校验 background.js 和 sidepanel.js 中关键路由与 token 存在
@@ -362,9 +385,12 @@ assert(backgroundJs.includes('cache: "no-store"'), "B站 fetchJson 禁用缓存"
 const manifestJson = JSON.parse(readFileSync(join(rootDir, "manifest.json"), "utf8"));
 const packageJson = JSON.parse(readFileSync(join(rootDir, "package.json"), "utf8"));
 assert(manifestJson.version === packageJson.version, "manifest 与 package 版本号保持一致");
-assert(manifestJson.version === "0.5.4", "发布版本号为 0.5.4");
+assert(manifestJson.version === "0.5.5", "发布版本号为 0.5.5");
 
 const sidepanelJs = readFileSync(join(rootDir, "sidepanel.js"), "utf8");
+assert(sidepanelJs.includes('applyNavigationLayout'), "侧栏实现页签显隐与重排");
+assert(sidepanelJs.includes('visibleTabButtons'), "键盘左右导航仅遍历当前可见页签");
+assert(sidepanelJs.includes('bili-digest:tabchange'), "程序化切换页签会广播激活事件");
 assert(sidepanelJs.includes("asrReqToken: 0"), "sidepanel.js 正确初始化 asrReqToken 为 0");
 assert(sidepanelJs.includes("viewToken: 0"), "sidepanel.js 正确初始化 viewToken 为 0");
 assert(sidepanelJs.includes("explainReqToken: 0"), "sidepanel.js 正确初始化 explainReqToken 为 0");
@@ -384,7 +410,12 @@ assert(sidepanelJs.includes("if (state.overviewGenerating) return;"), "概览生
 assert(sidepanelJs.includes("state.overviewGenerating = true;"), "概览请求开始时会进入生成态");
 assert(sidepanelJs.includes("!targetChanged && (!movedEnough || !waitedEnough)"), "历史播放位置写回同时满足位移与时间双阈值");
 assert(sidepanelJs.includes("queueReadingAppearanceSave"), "阅读外观支持自动持久化");
-assert(backgroundJs.includes("normalizeTypographySettings({ ...target, ...source })"), "部分设置更新会保留既有排版字段");
+assert(
+  backgroundJs.includes("const mergedSource = { ...target, ...source };") &&
+    backgroundJs.includes("normalizeTypographySettings(mergedSource)") &&
+    backgroundJs.includes("normalizeNavigationSettings(mergedSource)"),
+  "部分设置更新会同时保留并归一化排版与页签布局字段",
+);
 assert(/finally \{\s*if \(isCurrentTarget\(expected, "overviewReqToken"\)\)/.test(sidepanelJs), "概览 finally 仅在当前目标仍匹配时更新 UI");
 
 const sidepanelCss = readFileSync(join(rootDir, "sidepanel.css"), "utf8");

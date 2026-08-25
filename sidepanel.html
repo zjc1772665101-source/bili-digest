@@ -16,7 +16,7 @@
       <div class="brand-row">
         <span class="brand-name">BILI DIGEST</span>
         <span class="brand-sub">哔哩精读</span>
-        <span class="version-tag">v0.5.4</span>
+        <span class="version-tag">v0.5.5</span>
         <div class="brand-actions">
           <button id="historyBtn" class="history-toggle-btn" type="button" title="历史视频切换" aria-label="查看历史视频">历史</button>
           <button id="themeToggleBtn" class="theme-toggle" type="button" title="切换日间 / 夜间" aria-label="切换日间 / 夜间主题">☾</button>
@@ -222,15 +222,17 @@
           </div>
           <div class="comments-filter-row">
             <select id="commentsSortSelect" aria-label="一级评论排序">
-              <option value="3">最热</option>
-              <option value="2">最新</option>
+              <option value="weighted">综合热度</option>
+              <option value="likes">点赞最多</option>
+              <option value="replies">回复最多</option>
+              <option value="latest">最新</option>
             </select>
             <label class="comments-like-filter" for="commentsMinLikesInput">
               最低点赞
               <input id="commentsMinLikesInput" type="number" min="0" step="1" value="0" inputmode="numeric" />
             </label>
             <button id="commentsClearSearchBtn" class="ghost-btn" type="button">清除搜索</button>
-            <span class="comments-scope-note">“搜索所有评论”会边扫描边显示命中结果，并逐页读取每条一级评论下的完整回复。</span>
+            <span class="comments-scope-note">综合热度按 72% 点赞 + 28% 回复对数归一化排序；继续加载一级评论会实时更新排名。“搜索所有评论”仍会边扫描边显示命中结果。</span>
           </div>
         </div>
         <div id="commentsStatus" class="comments-status" role="status" aria-live="polite"></div>
@@ -238,7 +240,7 @@
         <button id="commentsResultMoreBtn" class="ghost-btn comments-result-more hidden" type="button">显示更多结果</button>
       </section>
 
-      <!-- 6. 设置面板（五大可折叠区域） -->
+      <!-- 6. 设置面板 -->
       <section id="tab-settings" class="panel" role="tabpanel" aria-labelledby="tab-btn-settings">
         <!-- 1. AI 接口 -->
         <details class="settings-accordion" id="accordionAi" open>
@@ -340,7 +342,31 @@
           </div>
         </details>
 
-        <!-- 3. 阅读外观 -->
+        <!-- 3. 顶部页签布局 -->
+        <details class="settings-accordion" id="accordionNavigation" open>
+          <summary class="accordion-head">
+            <span class="accordion-title">顶部页签布局</span>
+            <span class="accordion-badge" id="navigationConfigBadge">6/6 显示</span>
+          </summary>
+          <div class="accordion-body">
+            <p class="hint dim">拖动条目或使用“上移 / 下移”调整顶部页签顺序；可隐藏暂时不用的页签。“设置”始终保留，避免无法恢复布局。</p>
+            <div id="navLayoutList" class="nav-layout-list" aria-label="顶部页签显示与顺序"></div>
+            <div class="nav-layout-options">
+              <label class="field-label" for="navDefaultTabSelect">默认打开页签</label>
+              <select id="navDefaultTabSelect" aria-label="默认打开页签"></select>
+              <label class="setting-switch" for="navRememberLastTabCheckbox">
+                <input id="navRememberLastTabCheckbox" type="checkbox" checked />
+                <span>记住上次停留页签（开启后优先于默认页签）</span>
+              </label>
+            </div>
+            <div class="button-row">
+              <button id="navResetLayoutBtn" class="ghost-btn" type="button">恢复默认布局</button>
+            </div>
+            <p id="navLayoutStatus" class="hint" role="status" aria-live="polite"></p>
+          </div>
+        </details>
+
+        <!-- 4. 阅读外观 -->
         <details class="settings-accordion" id="accordionTypography" open>
           <summary class="accordion-head">
             <span class="accordion-title">阅读外观与排版</span>
@@ -503,7 +529,7 @@
           </div>
         </details>
 
-        <!-- 4. 翻译 -->
+        <!-- 5. 翻译 -->
         <details class="settings-accordion" id="accordionTranslation">
           <summary class="accordion-head">
             <span class="accordion-title">翻译设置</span>
@@ -527,7 +553,7 @@
           </div>
         </details>
 
-        <!-- 5. 备份与缓存管理 -->
+        <!-- 6. 备份与缓存管理 -->
         <details class="settings-accordion" id="accordionBackup">
           <summary class="accordion-head">
             <span class="accordion-title">设置备份与缓存管理</span>
