@@ -1,5 +1,5 @@
 /**
- * Bili Digest 后台 Service Worker (v0.5.1 本地增强版)。
+ * Bili Digest 后台 Service Worker (v0.5.2 本地增强版)。
  *
  * 核心职能：
  * 1. 视频与分 P 上下文解析；

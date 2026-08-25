@@ -1,5 +1,5 @@
 /**
- * Bili Digest Plus 本地增强版侧边栏主脚本 (v0.5.1)。
+ * Bili Digest Plus 本地增强版侧边栏主脚本 (v0.5.2)。
  *
  * 关键特性与防护机制：
  * 1. 严格的异步请求代次校验 (Request Token) 与 bvid/cid 身份比对，杜绝跨视频/分 P 竞态；

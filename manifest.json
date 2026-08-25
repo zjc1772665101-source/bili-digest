@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bili Digest Plus 哔哩精读本地增强版",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "minimum_chrome_version": "116",
   "description": "把 B站视频变成学习资料：原生字幕优先，无字幕时可用 Groq Whisper 生成时间轴字幕。",
   "permissions": [

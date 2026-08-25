@@ -66,7 +66,7 @@ function assert(condition, desc) {
 }
 
 console.log("\n=========================================");
-console.log("  Bili Digest Plus v0.5.1 测试套件运行");
+console.log("  Bili Digest Plus v0.5.2 测试套件运行");
 console.log("=========================================\n");
 
 // --- 1. 字幕与时间戳工具测试 ---
@@ -343,6 +343,11 @@ assert(backgroundJs.includes("contentDisplayConfig"), "background.js 包含 cont
 assert(backgroundJs.includes('referrer: "https://www.bilibili.com/"'), "B站 fetchJson 显式设置 referrer");
 assert(backgroundJs.includes('referrerPolicy: "strict-origin-when-cross-origin"'), "B站 fetchJson 显式设置 referrerPolicy");
 assert(backgroundJs.includes('cache: "no-store"'), "B站 fetchJson 禁用缓存");
+
+const manifestJson = JSON.parse(readFileSync(join(rootDir, "manifest.json"), "utf8"));
+const packageJson = JSON.parse(readFileSync(join(rootDir, "package.json"), "utf8"));
+assert(manifestJson.version === packageJson.version, "manifest 与 package 版本号保持一致");
+assert(manifestJson.version === "0.5.2", "发布版本号为 0.5.2");
 
 const sidepanelJs = readFileSync(join(rootDir, "sidepanel.js"), "utf8");
 assert(sidepanelJs.includes("asrReqToken: 0"), "sidepanel.js 正确初始化 asrReqToken 为 0");
