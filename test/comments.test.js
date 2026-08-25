@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   childPageCount,
+  collectRootCandidates,
   commentMatches,
   mergeUniqueComments,
   normalizeComment,
@@ -49,6 +50,25 @@ const merged = mergeUniqueComments([root], [root, child, { ...child, rpid: "789"
 assert.deepEqual(
   merged.map((item) => item.rpid),
   ["123", "456", "789"],
+);
+
+const rootCandidatesData = {
+  top_replies: [{ rpid: 900 }, { rpid: 800 }],
+  top: { admin: { rpid: 900 }, upper: { rpid: 700 }, vote: null },
+  hots: [{ rpid: 600 }, { rpid: 500 }],
+  replies: [{ rpid: 500 }, { rpid: 400 }],
+};
+assert.deepEqual(
+  collectRootCandidates(rootCandidatesData, { mode: 3, firstPage: true }).map((item) => String(item.rpid)),
+  ["900", "800", "700", "600", "500", "400"],
+);
+assert.deepEqual(
+  collectRootCandidates(rootCandidatesData, { mode: 2, firstPage: true }).map((item) => String(item.rpid)),
+  ["900", "800", "700", "500", "400"],
+);
+assert.deepEqual(
+  collectRootCandidates(rootCandidatesData, { mode: 3, firstPage: false }).map((item) => String(item.rpid)),
+  ["500", "400"],
 );
 
 assert.equal(childPageCount(0), 0);

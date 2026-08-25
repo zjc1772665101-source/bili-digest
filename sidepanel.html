@@ -16,7 +16,7 @@
       <div class="brand-row">
         <span class="brand-name">BILI DIGEST</span>
         <span class="brand-sub">哔哩精读</span>
-        <span class="version-tag">v0.5.3</span>
+        <span class="version-tag">v0.5.4</span>
         <div class="brand-actions">
           <button id="historyBtn" class="history-toggle-btn" type="button" title="历史视频切换" aria-label="查看历史视频">历史</button>
           <button id="themeToggleBtn" class="theme-toggle" type="button" title="切换日间 / 夜间" aria-label="切换日间 / 夜间主题">☾</button>
@@ -222,7 +222,7 @@
           </div>
           <div class="comments-filter-row">
             <select id="commentsSortSelect" aria-label="一级评论排序">
-              <option value="3">热门</option>
+              <option value="3">最热</option>
               <option value="2">最新</option>
             </select>
             <label class="comments-like-filter" for="commentsMinLikesInput">
@@ -230,7 +230,7 @@
               <input id="commentsMinLikesInput" type="number" min="0" step="1" value="0" inputmode="numeric" />
             </label>
             <button id="commentsClearSearchBtn" class="ghost-btn" type="button">清除搜索</button>
-            <span class="comments-scope-note">“搜索所有评论”会扫描全部一级评论，并逐页读取每条一级评论下的完整回复。</span>
+            <span class="comments-scope-note">“搜索所有评论”会边扫描边显示命中结果，并逐页读取每条一级评论下的完整回复。</span>
           </div>
         </div>
         <div id="commentsStatus" class="comments-status" role="status" aria-live="polite"></div>

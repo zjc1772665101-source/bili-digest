@@ -66,7 +66,7 @@ function assert(condition, desc) {
 }
 
 console.log("\n=========================================");
-console.log("  Bili Digest Plus v0.5.3 测试套件运行");
+console.log("  Bili Digest Plus v0.5.4 测试套件运行");
 console.log("=========================================\n");
 
 // --- 1. 字幕与时间戳工具测试 ---
@@ -340,6 +340,13 @@ assert(commentsJs.includes('/x/v2/reply/wbi/main'), "评论浏览使用 WBI 游�
 assert(commentsJs.includes('/x/v2/reply/reply'), "完整评论搜索逐页读取楼中楼回复");
 assert(commentsJs.includes('fetchAllChildren(root, controller.signal'), "搜索所有评论会为有回复的一级评论读取完整回复");
 assert(commentsJs.includes('mode: 2, signal: controller.signal'), "全量搜索按时间游标扫描，避免只遍历热评展示集");
+assert(sidepanelHtml.includes('<option value="3">最热</option>'), "评论排序名称与 B站网页一致使用最热");
+assert(commentsJs.includes('collectRootCandidates(data, { mode, firstPage: !offset })'), "评论浏览按当前 WBI top/hots/replies 结构组合");
+assert(!commentsJs.includes('data?.upper?.top'), "不再读取错误的 upper.top 置顶路径");
+assert(commentsJs.includes('onPage?.(first.replies'), "楼中楼按页流式回传搜索结果");
+assert(commentsJs.includes('appendProgressiveSearchItems'), "全量搜索支持命中即显示");
+assert(commentsJs.includes('addExhaustiveComments(replies)'), "楼中楼每页结果即时进入全量搜索索引");
+assert(commentsJs.includes('exhaustiveSeenRpids: new Set()'), "全量搜索使用 Set 增量去重，避免索引反复复制");
 
 // 校验 background.js 和 sidepanel.js 中关键路由与 token 存在
 const backgroundJs = readFileSync(join(rootDir, "background.js"), "utf8");
@@ -355,7 +362,7 @@ assert(backgroundJs.includes('cache: "no-store"'), "B站 fetchJson 禁用缓存"
 const manifestJson = JSON.parse(readFileSync(join(rootDir, "manifest.json"), "utf8"));
 const packageJson = JSON.parse(readFileSync(join(rootDir, "package.json"), "utf8"));
 assert(manifestJson.version === packageJson.version, "manifest 与 package 版本号保持一致");
-assert(manifestJson.version === "0.5.3", "发布版本号为 0.5.3");
+assert(manifestJson.version === "0.5.4", "发布版本号为 0.5.4");
 
 const sidepanelJs = readFileSync(join(rootDir, "sidepanel.js"), "utf8");
 assert(sidepanelJs.includes("asrReqToken: 0"), "sidepanel.js 正确初始化 asrReqToken 为 0");

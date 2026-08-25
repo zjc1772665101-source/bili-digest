@@ -1,6 +1,6 @@
 {
   "name": "bili-digest-plus-ui",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "B站视频学习 Chrome 扩展本地增强版",
   "type": "module",
   "scripts": {

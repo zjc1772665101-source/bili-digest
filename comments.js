@@ -1,6 +1,7 @@
 import { encWbi, getMixinKey, extractWbiKey } from "./lib/wbi.js";
 import {
   childPageCount,
+  collectRootCandidates,
   commentMatches,
   formatCommentTime,
   formatCompactNumber,
@@ -30,6 +31,9 @@ const state = {
   exhaustiveIndex: [],
   exhaustiveRootCount: 0,
   exhaustiveReplyCount: 0,
+  exhaustiveMatchCount: 0,
+  exhaustiveSeenRpids: new Set(),
+  renderedSearchRpids: new Set(),
   searchRunning: false,
   scanController: null,
   resultLimit: RESULT_PAGE_SIZE,
@@ -221,6 +225,9 @@ function resetVideoState() {
   state.exhaustiveIndex = [];
   state.exhaustiveRootCount = 0;
   state.exhaustiveReplyCount = 0;
+  state.exhaustiveMatchCount = 0;
+  state.exhaustiveSeenRpids.clear();
+  state.renderedSearchRpids.clear();
   state.resultLimit = RESULT_PAGE_SIZE;
   state.threadViews.clear();
   render();
@@ -247,10 +254,7 @@ async function fetchRootPage({ offset = "", mode = state.mode, signal } = {}) {
 
   const response = await signedGet("/x/v2/reply/wbi/main", params, signal);
   const data = response?.data || {};
-  const rawRoots = [];
-  if (data?.upper?.top) rawRoots.push(data.upper.top);
-  if (Array.isArray(data?.top_replies)) rawRoots.push(...data.top_replies);
-  if (Array.isArray(data?.replies)) rawRoots.push(...data.replies);
+  const rawRoots = collectRootCandidates(data, { mode, firstPage: !offset });
 
   const seen = new Set();
   const roots = [];
@@ -296,20 +300,20 @@ async function fetchChildPage(rootRpid, page, signal) {
   };
 }
 
-async function fetchAllChildren(root, signal, onProgress) {
-  if (!root?.rpid || root.replyCount <= 0) return [];
+async function fetchAllChildren(root, signal, onPage) {
+  if (!root?.rpid || root.replyCount <= 0) return 0;
   const first = await fetchChildPage(root.rpid, 1, signal);
-  let all = first.replies;
   const totalPages = childPageCount(first.count || root.replyCount, first.pageSize || 20);
-  onProgress?.(first.replies.length);
+  let scanned = first.replies.length;
+  onPage?.(first.replies, { page: 1, totalPages });
 
   for (let page = 2; page <= totalPages; page += 1) {
     await sleep(CHILD_PAGE_DELAY_MS, signal);
     const next = await fetchChildPage(root.rpid, page, signal);
-    all = mergeUniqueComments(all, next.replies);
-    onProgress?.(next.replies.length);
+    scanned += next.replies.length;
+    onPage?.(next.replies, { page, totalPages });
   }
-  return all;
+  return scanned;
 }
 
 async function loadNextRootPage() {
@@ -353,6 +357,57 @@ function filteredIndex(index) {
   );
 }
 
+function updateSearchMoreButton() {
+  if (state.searchMode !== "all") return;
+  const remaining = Math.max(0, state.exhaustiveMatchCount - state.renderedSearchRpids.size);
+  if (remaining > 0) {
+    moreResultsBtn.textContent = `显示更多结果（剩余 ${remaining} 条）`;
+    moreResultsBtn.classList.remove("hidden");
+  } else {
+    moreResultsBtn.classList.add("hidden");
+  }
+}
+
+function appendProgressiveSearchItems(items) {
+  if (state.searchMode !== "all" || !Array.isArray(items) || !items.length) return;
+  const query = currentQuery();
+  const minLikes = currentMinLikes();
+  let capacity = Math.max(0, state.resultLimit - state.renderedSearchRpids.size);
+  const fragment = document.createDocumentFragment();
+
+  for (const comment of items) {
+    const rpid = String(comment?.rpid || "");
+    if (!rpid || state.renderedSearchRpids.has(rpid)) continue;
+    if (!commentMatches(comment, query, { minLikes })) continue;
+    if (capacity <= 0) continue;
+    fragment.appendChild(createCommentCard(comment));
+    state.renderedSearchRpids.add(rpid);
+    capacity -= 1;
+  }
+
+  if (fragment.childNodes.length) {
+    listEl.querySelector(".comments-empty")?.remove();
+    listEl.appendChild(fragment);
+  }
+  updateSearchMoreButton();
+}
+
+function addExhaustiveComments(incoming) {
+  const fresh = [];
+  const query = currentQuery();
+  const minLikes = currentMinLikes();
+  for (const comment of Array.isArray(incoming) ? incoming : []) {
+    const rpid = String(comment?.rpid || "");
+    if (!rpid || state.exhaustiveSeenRpids.has(rpid)) continue;
+    state.exhaustiveSeenRpids.add(rpid);
+    state.exhaustiveIndex.push(comment);
+    fresh.push(comment);
+    if (commentMatches(comment, query, { minLikes })) state.exhaustiveMatchCount += 1;
+  }
+  appendProgressiveSearchItems(fresh);
+  return fresh;
+}
+
 function updateBrowseStatus() {
   const totalPart = state.rootTotal ? ` / 约 ${state.rootTotal}` : "";
   const previewCount = state.loadedIndex.filter((item) => item.isReply).length;
@@ -369,10 +424,9 @@ function updateBrowseStatus() {
 }
 
 function updateSearchStatus() {
-  const matches = filteredIndex(state.exhaustiveIndex).length;
   const scanned = state.exhaustiveRootCount + state.exhaustiveReplyCount;
   setStatus(
-    `${state.searchRunning ? "正在搜索" : "搜索完成"}：一级评论 ${state.exhaustiveRootCount} 条，完整回复 ${state.exhaustiveReplyCount} 条，共扫描 ${scanned} 条，命中 ${matches} 条。`,
+    `${state.searchRunning ? "正在搜索并实时显示结果" : "搜索完成"}：一级评论 ${state.exhaustiveRootCount} 条，完整回复 ${state.exhaustiveReplyCount} 条，共扫描 ${scanned} 条，命中 ${state.exhaustiveMatchCount} 条。`,
   );
 }
 
@@ -395,6 +449,9 @@ async function runExhaustiveSearch() {
     state.exhaustiveIndex = [];
     state.exhaustiveRootCount = 0;
     state.exhaustiveReplyCount = 0;
+    state.exhaustiveMatchCount = 0;
+    state.exhaustiveSeenRpids.clear();
+    state.renderedSearchRpids.clear();
     state.resultLimit = RESULT_PAGE_SIZE;
     searchAllBtn.disabled = true;
     stopSearchBtn.classList.remove("hidden");
@@ -413,22 +470,21 @@ async function runExhaustiveSearch() {
         return true;
       });
 
+      const addedRoots = addExhaustiveComments(freshRoots);
+      state.exhaustiveRootCount += addedRoots.length;
+      updateSearchStatus();
+
       for (const root of freshRoots) {
         if (controller.signal.aborted) throw new DOMException("Aborted", "AbortError");
-        state.exhaustiveRootCount += 1;
-        state.exhaustiveIndex = mergeUniqueComments(state.exhaustiveIndex, [root]);
-        updateSearchStatus();
-
         if (root.replyCount > 0) {
-          const children = await fetchAllChildren(root, controller.signal, (count) => {
-            state.exhaustiveReplyCount += count;
+          await fetchAllChildren(root, controller.signal, (replies) => {
+            const addedReplies = addExhaustiveComments(replies);
+            state.exhaustiveReplyCount += addedReplies.length;
             updateSearchStatus();
           });
-          state.exhaustiveIndex = mergeUniqueComments(state.exhaustiveIndex, children);
         }
       }
 
-      render();
       updateSearchStatus();
       ended = batch.isEnd || (!batch.nextOffset && freshRoots.length === 0);
       offset = batch.nextOffset;
@@ -470,6 +526,9 @@ function clearSearch() {
   state.localQuery = "";
   state.searchMode = "";
   state.exhaustiveIndex = [];
+  state.exhaustiveMatchCount = 0;
+  state.exhaustiveSeenRpids.clear();
+  state.renderedSearchRpids.clear();
   state.resultLimit = RESULT_PAGE_SIZE;
   render();
   updateBrowseStatus();
@@ -667,14 +726,23 @@ function renderBrowse() {
 
 function renderSearchResults(index) {
   const results = filteredIndex(index);
+  if (state.searchMode === "all") {
+    state.exhaustiveMatchCount = results.length;
+    state.renderedSearchRpids.clear();
+  }
   if (!results.length) {
     renderEmpty(state.searchRunning ? "正在继续扫描，当前还没有匹配结果" : "没有找到匹配评论");
     moreResultsBtn.classList.add("hidden");
     return;
   }
   const visible = results.slice(0, state.resultLimit);
-  for (const comment of visible) listEl.appendChild(createCommentCard(comment));
-  if (results.length > visible.length) {
+  for (const comment of visible) {
+    listEl.appendChild(createCommentCard(comment));
+    if (state.searchMode === "all" && comment.rpid) state.renderedSearchRpids.add(String(comment.rpid));
+  }
+  if (state.searchMode === "all") {
+    updateSearchMoreButton();
+  } else if (results.length > visible.length) {
     moreResultsBtn.textContent = `显示更多结果（剩余 ${results.length - visible.length} 条）`;
     moreResultsBtn.classList.remove("hidden");
   } else {
