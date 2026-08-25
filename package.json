@@ -1,10 +1,10 @@
 {
   "name": "bili-digest-plus-ui",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "B站视频学习 Chrome 扩展本地增强版",
   "type": "module",
   "scripts": {
-    "test": "node test/run-all.js",
+    "test": "node test/run-all.js && node test/comments.test.js",
     "check": "node test/check-syntax.js",
     "package": "node test/package-zip.js",
     "verify-bili": "node test/verify-bili.js"

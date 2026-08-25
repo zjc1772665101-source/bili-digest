@@ -66,7 +66,7 @@ function assert(condition, desc) {
 }
 
 console.log("\n=========================================");
-console.log("  Bili Digest Plus v0.5.2 测试套件运行");
+console.log("  Bili Digest Plus v0.5.3 测试套件运行");
 console.log("=========================================\n");
 
 // --- 1. 字幕与时间戳工具测试 ---
@@ -332,6 +332,14 @@ assert(sidepanelHtml.includes('id="historyDrawer"'), "sidepanel.html 包含 hist
 assert(sidepanelHtml.includes('id="historyBtn"'), "sidepanel.html 包含 historyBtn");
 assert(sidepanelHtml.includes('id="explainSheet"'), "sidepanel.html 包含 explainSheet");
 assert(sidepanelHtml.includes('id="clearCacheBtn"'), "sidepanel.html 包含 clearCacheBtn 缓存清理按钮");
+assert(sidepanelHtml.includes('id="tab-btn-comments"'), "sidepanel.html 包含评论页签");
+assert(sidepanelHtml.includes('id="commentsSearchAllBtn"'), "评论面板提供搜索所有评论入口");
+assert(sidepanelHtml.includes('src="comments.js"'), "sidepanel.html 加载评论功能脚本");
+const commentsJs = readFileSync(join(rootDir, "comments.js"), "utf8");
+assert(commentsJs.includes('/x/v2/reply/wbi/main'), "评论浏览使用 WBI 游标接口扫描一级评论");
+assert(commentsJs.includes('/x/v2/reply/reply'), "完整评论搜索逐页读取楼中楼回复");
+assert(commentsJs.includes('fetchAllChildren(root, controller.signal'), "搜索所有评论会为有回复的一级评论读取完整回复");
+assert(commentsJs.includes('mode: 2, signal: controller.signal'), "全量搜索按时间游标扫描，避免只遍历热评展示集");
 
 // 校验 background.js 和 sidepanel.js 中关键路由与 token 存在
 const backgroundJs = readFileSync(join(rootDir, "background.js"), "utf8");
@@ -347,7 +355,7 @@ assert(backgroundJs.includes('cache: "no-store"'), "B站 fetchJson 禁用缓存"
 const manifestJson = JSON.parse(readFileSync(join(rootDir, "manifest.json"), "utf8"));
 const packageJson = JSON.parse(readFileSync(join(rootDir, "package.json"), "utf8"));
 assert(manifestJson.version === packageJson.version, "manifest 与 package 版本号保持一致");
-assert(manifestJson.version === "0.5.2", "发布版本号为 0.5.2");
+assert(manifestJson.version === "0.5.3", "发布版本号为 0.5.3");
 
 const sidepanelJs = readFileSync(join(rootDir, "sidepanel.js"), "utf8");
 assert(sidepanelJs.includes("asrReqToken: 0"), "sidepanel.js 正确初始化 asrReqToken 为 0");

@@ -725,16 +725,12 @@ async function handleSortChange() {
 }
 
 function initInfiniteScroll() {
-  const observer = new IntersectionObserver(
-    (entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      if (!tabBtn.classList.contains("active")) return;
-      if (currentQuery() || state.searchMode === "all") return;
-      loadNextRootPage();
-    },
-    { root: listEl, rootMargin: "360px 0px", threshold: 0 },
-  );
-  observer.observe(sentinelEl);
+  listEl.addEventListener("scroll", () => {
+    if (!tabBtn.classList.contains("active")) return;
+    if (currentQuery() || state.searchMode === "all") return;
+    const remaining = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight;
+    if (remaining < 360) loadNextRootPage();
+  }, { passive: true });
 }
 
 function bindEvents() {
