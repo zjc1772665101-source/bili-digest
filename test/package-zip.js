@@ -142,6 +142,12 @@ try {
     copyFileSync(sourceRealPath, destinationPath);
   }
 
+  // Let .NET archive the staging directory directly instead of deriving entry
+  // names by subtracting path-string lengths. On Windows the same directory can
+  // be represented as an 8.3 short path and as a long path; string slicing then
+  // leaks a random temporary-directory suffix into the ZIP root. The
+  // includeBaseDirectory=false overload guarantees manifest.json stays at the
+  // archive root regardless of path representation.
   const psCmd = [
     "$ErrorActionPreference = 'Stop'",
     `$stage = ${powershellQuote(stagingDir)}`,
@@ -149,18 +155,7 @@ try {
     "if (Test-Path -LiteralPath $dest) { Remove-Item -LiteralPath $dest -Force }",
     "Add-Type -AssemblyName System.IO.Compression",
     "Add-Type -AssemblyName System.IO.Compression.FileSystem",
-    "$archive = [System.IO.Compression.ZipFile]::Open($dest, [System.IO.Compression.ZipArchiveMode]::Create)",
-    "try {",
-    "  foreach ($file in (Get-ChildItem -LiteralPath $stage -File -Recurse)) {",
-    "    $entryName = $file.FullName.Substring($stage.Length + 1).Replace('\\', '/')",
-    "    $entry = $archive.CreateEntry($entryName, [System.IO.Compression.CompressionLevel]::Optimal)",
-    "    $source = [System.IO.File]::OpenRead($file.FullName)",
-    "    try {",
-    "      $target = $entry.Open()",
-    "      try { $source.CopyTo($target) } finally { $target.Dispose() }",
-    "    } finally { $source.Dispose() }",
-    "  }",
-    "} finally { $archive.Dispose() }",
+    "[System.IO.Compression.ZipFile]::CreateFromDirectory($stage, $dest, [System.IO.Compression.CompressionLevel]::Optimal, $false)",
     "if (-not (Test-Path -LiteralPath $dest)) { throw 'Archive was not created' }",
     'Write-Host "Created $dest"',
   ].join("\n");
