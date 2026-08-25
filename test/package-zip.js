@@ -31,6 +31,8 @@ const RELEASE_FILES = new Set([
   "sidepanel.html",
   "sidepanel.css",
   "sidepanel.js",
+  "comments.css",
+  "comments.js",
   "options.html",
   "options.css",
   "options.js",
