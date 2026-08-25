@@ -1,0 +1,199 @@
+name: Assemble v0.5.3 comment search
+
+on:
+  push:
+    branches:
+      - agent/comment-search-v0.5.3
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Patch v0.5.2 baseline for comment search
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def read(path):
+              return Path(path).read_text(encoding="utf-8")
+
+          def write(path, text):
+              Path(path).write_text(text, encoding="utf-8", newline="\n")
+
+          def must_replace(text, old, new, label):
+              if old not in text:
+                  if new in text:
+                      return text
+                  raise SystemExit(f"missing patch marker: {label}")
+              return text.replace(old, new, 1)
+
+          # sidepanel: static tab/panel so the existing generic tab controller owns it.
+          html = read("sidepanel.html")
+          html = must_replace(
+              html,
+              '    <link rel="stylesheet" href="sidepanel.css" />',
+              '    <link rel="stylesheet" href="sidepanel.css" />\n    <link rel="stylesheet" href="comments.css" />',
+              "comments stylesheet",
+          )
+          html = must_replace(
+              html,
+              '      <button id="tab-btn-settings" class="tab" data-tab="settings" role="tab" aria-selected="false" aria-controls="tab-settings" tabindex="-1">设置</button>',
+              '      <button id="tab-btn-comments" class="tab" data-tab="comments" role="tab" aria-selected="false" aria-controls="tab-comments" tabindex="-1">评论</button>\n      <button id="tab-btn-settings" class="tab" data-tab="settings" role="tab" aria-selected="false" aria-controls="tab-settings" tabindex="-1">设置</button>',
+              "comments tab",
+          )
+
+          comments_panel = '''      <!-- 5. 评论面板 -->
+      <section id="tab-comments" class="panel comments-panel" role="tabpanel" aria-labelledby="tab-btn-comments">
+        <div class="comments-toolbar">
+          <div class="comments-search-row">
+            <input
+              id="commentsSearchInput"
+              type="search"
+              placeholder="搜索评论内容、用户名或 UID"
+              autocomplete="off"
+              spellcheck="false"
+              aria-label="搜索评论"
+            />
+            <button id="commentsSearchAllBtn" class="primary-btn comments-search-all-btn" type="button">搜索所有评论</button>
+            <button id="commentsStopSearchBtn" class="ghost-btn comments-stop-btn hidden" type="button">停止搜索</button>
+          </div>
+          <div class="comments-filter-row">
+            <select id="commentsSortSelect" aria-label="一级评论排序">
+              <option value="3">热门</option>
+              <option value="2">最新</option>
+            </select>
+            <label class="comments-like-filter" for="commentsMinLikesInput">
+              最低点赞
+              <input id="commentsMinLikesInput" type="number" min="0" step="1" value="0" inputmode="numeric" />
+            </label>
+            <button id="commentsClearSearchBtn" class="ghost-btn" type="button">清除搜索</button>
+            <span class="comments-scope-note">“搜索所有评论”会扫描全部一级评论，并逐页读取每条一级评论下的完整回复。</span>
+          </div>
+        </div>
+        <div id="commentsStatus" class="comments-status" role="status" aria-live="polite"></div>
+        <div id="commentsList" class="comments-list" tabindex="0" aria-label="评论列表"></div>
+        <button id="commentsResultMoreBtn" class="ghost-btn comments-result-more hidden" type="button">显示更多结果</button>
+      </section>
+
+'''
+          marker = '      <!-- 5. 设置面板（五大可折叠区域） -->\n'
+          if 'id="tab-comments"' not in html:
+              if marker not in html:
+                  raise SystemExit("missing patch marker: settings panel")
+              html = html.replace(marker, comments_panel + '      <!-- 6. 设置面板（五大可折叠区域） -->\n', 1)
+          else:
+              html = html.replace(marker, '      <!-- 6. 设置面板（五大可折叠区域） -->\n', 1)
+
+          html = must_replace(
+              html,
+              '    <script type="module" src="sidepanel.js"></script>',
+              '    <script type="module" src="sidepanel.js"></script>\n    <script type="module" src="comments.js"></script>',
+              "comments script",
+          )
+          write("sidepanel.html", html)
+
+          # Use the comment list itself as the infinite-scroll container.
+          js = read("comments.js")
+          js = re.sub(
+              r'function initInfiniteScroll\(\) \{.*?\n\}\n\nfunction bindEvents\(\)',
+              '''function initInfiniteScroll() {
+  listEl.addEventListener("scroll", () => {
+    if (!tabBtn.classList.contains("active")) return;
+    if (currentQuery() || state.searchMode === "all") return;
+    const remaining = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight;
+    if (remaining < 360) loadNextRootPage();
+  }, { passive: true });
+}
+
+function bindEvents()''',
+              js,
+              flags=re.S,
+              count=1,
+          )
+          # @用户名 is accepted as a natural username query.
+          js_util = read("lib/comments-util.js")
+          js_util = js_util.replace(
+              '  const needle = String(query || "").trim().toLocaleLowerCase();\n  if (!needle) return true;',
+              '  const rawNeedle = String(query || "").trim().toLocaleLowerCase();\n  const needle = rawNeedle.startsWith("@") ? rawNeedle.slice(1) : rawNeedle;\n  if (!needle) return true;',
+          )
+          write("comments.js", js)
+          write("lib/comments-util.js", js_util)
+
+          # Package test also exercises the pure comment-search helpers.
+          package_json = read("package.json")
+          package_json = package_json.replace(
+              '"test": "node test/run-all.js"',
+              '"test": "node test/run-all.js && node test/comments.test.js"',
+          )
+          write("package.json", package_json)
+
+          # Version is intentionally rebuilt from the accepted v0.5.2 baseline.
+          for path in [
+              "background.js",
+              "manifest.json",
+              "options.html",
+              "package.json",
+              "sidepanel.html",
+              "sidepanel.js",
+              "test/run-all.js",
+          ]:
+              text = read(path).replace("0.5.2", "0.5.3")
+              write(path, text)
+
+          tests = read("test/run-all.js")
+          anchor = 'assert(sidepanelHtml.includes(\'id="clearCacheBtn"\'), "sidepanel.html 包含 clearCacheBtn 缓存清理按钮");\n'
+          extra = '''assert(sidepanelHtml.includes('id="tab-btn-comments"'), "sidepanel.html 包含评论页签");
+assert(sidepanelHtml.includes('id="commentsSearchAllBtn"'), "评论面板提供搜索所有评论入口");
+assert(sidepanelHtml.includes('src="comments.js"'), "sidepanel.html 加载评论功能脚本");
+const commentsJs = readFileSync(join(rootDir, "comments.js"), "utf8");
+assert(commentsJs.includes('/x/v2/reply/wbi/main'), "评论浏览使用 WBI 游标接口扫描一级评论");
+assert(commentsJs.includes('/x/v2/reply/reply'), "完整评论搜索逐页读取楼中楼回复");
+assert(commentsJs.includes('fetchAllChildren(root, controller.signal'), "搜索所有评论会为有回复的一级评论读取完整回复");
+assert(commentsJs.includes('mode: 2, signal: controller.signal'), "全量搜索按时间游标扫描，避免只遍历热评展示集");
+'''
+          if extra.strip() not in tests:
+              if anchor not in tests:
+                  raise SystemExit("missing patch marker: run-all comment assertions")
+              tests = tests.replace(anchor, anchor + extra, 1)
+          write("test/run-all.js", tests)
+          PY
+
+      - name: Run tests
+        run: npm test
+
+      - name: Syntax check
+        run: npm run check
+
+      - name: Verify version and comment files
+        shell: bash
+        run: |
+          node -e "const m=require('./manifest.json'); const p=require('./package.json'); if(m.version!=='0.5.3'||p.version!=='0.5.3') process.exit(1)"
+          grep -q 'tab-btn-comments' sidepanel.html
+          grep -q '/x/v2/reply/wbi/main' comments.js
+          grep -q '/x/v2/reply/reply' comments.js
+
+      - name: Commit assembled source
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No source changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add background.js manifest.json options.html package.json sidepanel.html sidepanel.js comments.js comments.css lib/comments-util.js test/run-all.js test/comments.test.js
+          git commit -m "feat: add exhaustive comment search"
+          git push origin HEAD:agent/comment-search-v0.5.3
