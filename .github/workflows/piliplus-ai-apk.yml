@@ -8,6 +8,10 @@ on:
       - '.github/workflows/piliplus-ai-apk.yml'
   workflow_dispatch:
 
+concurrency:
+  group: piliplus-ai-apk
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
