@@ -52,6 +52,10 @@ jobs:
         working-directory: app
         run: flutter pub get
 
+      - name: Analyze AI integration
+        working-directory: app
+        run: flutter analyze lib/pages/video/ai_digest lib/pages/video/view.dart lib/pages/video/introduction/ugc/view.dart lib/common/widgets/video_popup_menu.dart --no-fatal-warnings --no-fatal-infos
+
       - name: Build isolated ARM64 APK
         working-directory: app
         run: >-
