@@ -42,13 +42,20 @@ if needle not in text:
 text = text.replace(needle, replacement, 1)
 gradle.write_text(text, encoding='utf-8')
 
-# 3) Normalize a few Dart expressions whose generic numeric return types are
-# intentionally stricter on the Flutter/Dart version pinned by PiliPlus.
+# 3) Normalize a few Dart expressions for the Flutter/Dart version pinned by PiliPlus.
 service = root / 'lib/pages/video/ai_digest/service.dart'
 text = service.read_text(encoding='utf-8')
 text = text.replace(
     'final safeIndex = trackIndex.clamp(0, tracks.length - 1);',
     'final safeIndex = trackIndex.clamp(0, tracks.length - 1).toInt();',
+)
+text = text.replace(
+    'if (tracks.isNotEmpty) controller.subtitles.assignAll(tracks);',
+    '''if (tracks.isNotEmpty) {
+        controller.subtitles
+          ..clear()
+          ..addAll(tracks);
+      }''',
 )
 text = text.replace(
     'final seconds = value.round().clamp(0, 24 * 3600 * 100);',
