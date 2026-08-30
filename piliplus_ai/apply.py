@@ -27,7 +27,60 @@ if needle not in text:
 text = text.replace(needle, replacement, 1)
 gradle.write_text(text, encoding='utf-8')
 
-# 3) Replace the existing B-site-only AI bottom sheet with the unified assistant.
+# 3) Normalize a few Dart expressions whose generic numeric return types are
+# intentionally stricter on the Flutter/Dart version pinned by PiliPlus.
+service = root / 'lib/pages/video/ai_digest/service.dart'
+text = service.read_text(encoding='utf-8')
+text = text.replace(
+    'final safeIndex = trackIndex.clamp(0, tracks.length - 1);',
+    'final safeIndex = trackIndex.clamp(0, tracks.length - 1).toInt();',
+)
+text = text.replace(
+    'final seconds = value.round().clamp(0, 24 * 3600 * 100);',
+    'final seconds = value.round().clamp(0, 24 * 3600 * 100).toInt();',
+)
+text = text.replace('return const Iterable.empty();', 'return <T>[];')
+service.write_text(text, encoding='utf-8')
+
+view = root / 'lib/pages/video/ai_digest/view.dart'
+text = view.read_text(encoding='utf-8')
+text = text.replace(
+    "import 'dart:async';",
+    "import 'dart:async';\nimport 'dart:ui' show FontFeature;",
+    1,
+)
+text = text.replace(
+    'asrProgress = value.clamp(0, 1);',
+    'asrProgress = value.clamp(0, 1).toDouble();',
+)
+text = text.replace(
+    'value: trackIndex.clamp(0, tracks.length - 1),',
+    'value: trackIndex.clamp(0, tracks.length - 1).toInt(),',
+)
+text = text.replace(
+'''                  switch (value) {
+                    case 'translate':
+                      _translate();
+                    case 'reload':
+                      _loadTranscript();
+                    case 'asr':
+                      _generateAsr();
+                  }''',
+'''                  switch (value) {
+                    case 'translate':
+                      _translate();
+                      break;
+                    case 'reload':
+                      _loadTranscript();
+                      break;
+                    case 'asr':
+                      _generateAsr();
+                      break;
+                  }''',
+)
+view.write_text(text, encoding='utf-8')
+
+# 4) Replace the existing B-site-only AI bottom sheet with the unified assistant.
 video_view = root / 'lib/pages/video/view.dart'
 text = video_view.read_text(encoding='utf-8')
 import_anchor = "import 'package:PiliPlus/pages/video/ai_conclusion/view.dart';"
@@ -60,7 +113,7 @@ if old_sheet not in text:
 text = text.replace(old_sheet, new_sheet, 1)
 video_view.write_text(text, encoding='utf-8')
 
-# 4) Make the existing AI icon open the assistant even when B站 has no official summary.
+# 5) Make the existing AI icon open the assistant even when B站 has no official summary.
 ugc_view = root / 'lib/pages/video/introduction/ugc/view.dart'
 text = ugc_view.read_text(encoding='utf-8')
 old_tap = '''        onTap: () async {
@@ -87,7 +140,7 @@ text = text.replace(old_tap, new_tap, 1)
 text = text.replace("semanticLabel: 'AI总结'", "semanticLabel: 'AI视频助手'", 1)
 ugc_view.write_text(text, encoding='utf-8')
 
-# 5) Keep the feed card action lightweight and distinguish it from the full assistant.
+# 6) Keep the feed card action lightweight and distinguish it from the full assistant.
 popup = root / 'lib/common/widgets/video_popup_menu.dart'
 text = popup.read_text(encoding='utf-8')
 text = text.replace("'AI总结',", "'AI速览',", 1)
