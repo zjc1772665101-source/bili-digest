@@ -11,6 +11,21 @@ shutil.copytree(source, root, dirs_exist_ok=True)
 # 2) Give the test APK an independent Android applicationId and label.
 gradle = root / 'android/app/build.gradle.kts'
 text = gradle.read_text(encoding='utf-8')
+features_anchor = '''    buildFeatures {
+        if (project.hasProperty("dev")) {
+            resValues = true
+        }
+    }
+'''
+features_replacement = '''    buildFeatures {
+        if (project.hasProperty("dev") || project.hasProperty("ai")) {
+            resValues = true
+        }
+    }
+'''
+if features_anchor not in text:
+    raise SystemExit('build.gradle.kts buildFeatures anchor not found')
+text = text.replace(features_anchor, features_replacement, 1)
 needle = '        release {\n            if (project.hasProperty("dev")) {'
 replacement = '''        release {
             if (project.hasProperty("ai")) {
@@ -23,7 +38,7 @@ replacement = '''        release {
             }
             if (project.hasProperty("dev")) {'''
 if needle not in text:
-    raise SystemExit('build.gradle.kts patch anchor not found')
+    raise SystemExit('build.gradle.kts release anchor not found')
 text = text.replace(needle, replacement, 1)
 gradle.write_text(text, encoding='utf-8')
 
